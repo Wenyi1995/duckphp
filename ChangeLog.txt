@@ -1,3 +1,109 @@
+v1.2.11 变更
+2021-04-09 20:04:24
+Console 支持 --a-b => $a_b
+DuckPhpCommand 了兼容 workerman 使用 -override-class 切换 httpserver 类
+App handler 放入 kernerl
+为 Route 添加 controller_path_prefix ，前缀
+全部通过 PATH_INFO 传递 用 (__SUPERGLOBAL_CONTEXT)()-> 代替之前的 superglobal
+AppPluginTrait 继续优化，并改为 Component 目录 添加了资源目录
+
+增加了几个全局函数
+HelperTrait 删除
+ViewHelper 函数删除，
+SuperGobal 用宏的形式回归
+HttpServer添加相关 Interface
+
+其他改进
+
+v1.2.10 变更
+目录结构调整
+所有 Trait 都以 Trait 结尾
+常用组件抽入 Component 目录
+ext 目录则是默认不加载的目录
+
+Console 命令行组件独立化， 和 DuckPhp 相关内容放入 DuckPhpCommand 组件
+RouteHookRouteMap，ExtendableStaticCallTrait， 回调的 ->,@,添加区分度 @ 表示 ::G()->
+App SuperGlobal 类删除 ExitJson() header 变更,XCall => XpCall
+AppPluginTrait ,view 目录在类名目录底下
+AutoLoader::G()->runAutoLoader 方便同名操作
+RuntimeState 统一用 reset()
+DuckPhp 优化不必要的类加载
+
+Ext 扩展
+加回了  ExceptionWrapper,HookChain
+FacadesAutoLoader 前缀改加 MyFacadesAutoLoader
+添加中间件 MyMiddlewareManager
+原先 SuperGlobal 的部分功能划入新类 StaticReplacer
+使用 LibCoverage 来做全覆盖测试
+
+v1.2.9 变更
+AppPluginTrait 微调（下个版本解决 view 不明显问题
+ComponentBase 简化
+ExtendableStaticCallTrait::CallExtendStaticMethod 调用方式用@分割对象和方法
+Kernel 内核简化，减少不必要东西 取消 use_super_global 选项
+Route prepare($serverData); 统一为 reset
+DuckPhp 精简东西，不再需要载入太多东西
+Console 支持 cli_mode
+Installer 尝试支持 windows
+JsonView 新增 JsonView
+Pager 去掉 SuperGlobal
+其他因去掉 SuperGlobal 做了一些改动
+ToDo ，下个版本完善并加入 SuperGlobalReplacer 类
+SingletonEx 添加一个集中式处理的 SimpleReplacer 类。
+添加了 doc 页面查看页面
+
+v1.2.8 变更
+添加了比较完善的命令行模式
+调整了好些选项
+助手类的注入现在必须是显式注入
+添加 __db()，调试用的类也变成 全局函数
+路由现在有了阻止静态方法的选项， 可以用 G 方法修改实现了
+DbManager 的获得 Db 类被抽了出来
+
+添加了安装器扩展。而不是单独的安装器文件
+扩展文件，如果有扩展App类静态方法的都加了开关选项
+删除了旧的示例
+例子都大有调整
+
+感谢 gitee 的各位给我的鼓励
+
+v1.2.7 变更
+修复上一版本默认不加载任何扩展的严重 bug
+
+完善自动文档脚本
+
+Controller 可以用 G 函数了。 第三方库提供者的控制器可以让人热修改了。
+相应的是 'controller_use_singletonex' 选项 和 replaceControllerSingelton($old_class, $new_class)
+
+debug_log($str,$arg=[]) 不要考虑 App::Logger()->info,debug 还是什么。
+
+添加了手动关闭数据库的 DbCloseAll();
+
+默认不再和额外命名空间 LazyToChange 有任何联系
+
+设置文件的手动选项， 'use_setting_file'  'use_env_file'  不再默认必须有设置文件了。
+
+Kernel 方面，override_class 选项不再和 namespace 相关。path ， namespace 这两项默认不需要提供了。
+
+Kernel 增加了 onAfterRun 事件处理。
+
+
+Route 析出内部 trait Route_UrlManager 处理 url ， skip_fix_path_info 现在是由 Route 类处理
+
+
+Db 丰富了 Object 方式的查询 。setObjectResultClass （链式） ,fetchObject ,fetchObjectAll
+
+RouteHookPathInfoByGet 改名 RouteHookPathInfoCompat
+RouteHookApiServer 完善可用
+
+JsonRpcClientBase 修复了代理的 init(),isInit() 函数
+AppPluginTrait 修复 OnUrl，希望没出其他额外事
+ComponentBase 多了 getComponenetNamespace
+
+
+示例文件更精简。
+其他一些可虎烈的小改动。
+
 v1.2.6 变更
 1 支持 windows
 2 架构更新， 原先的 Service 重命名为 Business 导致模板目录变更

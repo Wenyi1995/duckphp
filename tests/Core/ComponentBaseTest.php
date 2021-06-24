@@ -7,7 +7,7 @@ class ComponentBaseTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(ComponentBase::class);
+        \LibCoverage\LibCoverage::Begin(ComponentBase::class);
 
         ComponentBaseObject::G()->init(['a'=>'b'],new \stdClass());
         ComponentBaseObject::G()->isInited();
@@ -15,12 +15,12 @@ class ComponentBaseTest extends \PHPUnit\Framework\TestCase
 
         ComponentBaseObject::G();
         ComponentBaseObject::G(new ComponentBaseObject());
-        $t=\MyCodeCoverage::G();
+        $t=\LibCoverage\LibCoverage::G();
         define('__SINGLETONEX_REPALACER',ComponentBaseObject::class.'::CreateObject');
-        \MyCodeCoverage::G($t);
+        \LibCoverage\LibCoverage::G($t);
         ComponentBaseObject::G();
         
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
     }
 }
 
@@ -40,16 +40,17 @@ class ComponentBaseObject extends ComponentBase  implements ComponentInterface
         $this->options['path_test']='/tmp';
         $this->path = parent::getComponenetPathByKey('path_test');
         
-        
+        /*
         $this->namespace = parent::getComponenetNameSpace('namespace_test');
         $this->options['namespace_test']='\\mynamespace';
         $this->namespace = parent::getComponenetNameSpace('namespace_test');
+        */
     }
     public static function CreateObject($class, $object)
     {
         static $_instance;
         $_instance=$_instance??[];
-        $_instance[$class]=$object?:($_instance[$class]??($_instance[$class]??new static));
+        $_instance[$class]=$object?:($_instance[$class]??($_instance[$class]??new $class));
         return $_instance[$class];
     }
 }

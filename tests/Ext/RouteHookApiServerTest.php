@@ -4,13 +4,13 @@ namespace tests\DuckPhp\Ext;
 use DuckPhp\DuckPhp;
 use DuckPhp\Core\Route;
 use DuckPhp\Ext\RouteHookApiServer;
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 
 class RouteHookApiServerTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(RouteHookApiServer::class);
+        \LibCoverage\LibCoverage::Begin(RouteHookApiServer::class);
         $options = [
             'is_debug'=>true,
             'override_class'=>'',
@@ -18,18 +18,19 @@ class RouteHookApiServerTest extends \PHPUnit\Framework\TestCase
                 RouteHookApiServer::class => true,
             ],
             
-            'api_server_interface' => '~BaseApi',
+            'api_server_base_class' => '~BaseApi',
             'api_server_namespace' => '\tests\DuckPhp\Ext',
             'api_server_class_postfix' => 'API',
             //'api_server_config_cache_file' => '',
             //'api_server_on_missing' => '',
             'api_server_use_singletonex' => false,
             'api_server_404_as_exception' => false,
+            'cli_enable'=>false,
         ];
         
         DuckPhp::G()->init($options);
         Route::G()->bind('/test.foo2');
-        DuckPhp::SuperGlobal()->_REQUEST=['a'=>'1','b'=>3];
+        $_REQUEST=['a'=>'1','b'=>3];
         Route::G()->run();
         
         Route::G()->bind('/test.mustexception');
@@ -39,7 +40,7 @@ class RouteHookApiServerTest extends \PHPUnit\Framework\TestCase
         DuckPhp::G()->run();
         
         Route::G()->bind('/test.foo3');
-        DuckPhp::SuperGlobal()->_REQUEST=['name'=>'a','id'=>[]];
+        $_REQUEST=['name'=>'a','id'=>[]];
         DuckPhp::G()->run();
         
         Route::G()->bind('/test.mustarg');
@@ -49,7 +50,7 @@ class RouteHookApiServerTest extends \PHPUnit\Framework\TestCase
         
         DuckPhp::G()->options['is_debug']=false;
         Route::G()->bind('/test.foo2');
-        DuckPhp::SuperGlobal()->_POST = ['a'=>'1','b'=>3];
+        $_POST = ['a'=>'1','b'=>3];
         DuckPhp::G()->run();
         
         
@@ -62,18 +63,39 @@ class RouteHookApiServerTest extends \PHPUnit\Framework\TestCase
         DuckPhp::G()->run();
         Route::G()->bind('/test.foo');
         DuckPhp::G()->run();
+        
+        
+        $options = [
+            'is_debug'=>true,
+            'override_class'=>'',
+            'ext'=>[
+                RouteHookApiServer::class => true,
+            ],
+            'namespace'=>'tests',
+            'api_server_base_class' => '~BaseApi',
+            'api_server_namespace' => 'DuckPhp\Ext',
+            'api_server_class_postfix' => 'API',
+            'api_server_use_singletonex' => false,
+            'api_server_404_as_exception' => false,
+            'cli_enable'=>false,
+        ];
+        
+        DuckPhp::G()->init($options);
+        Route::G()->bind('/test.foo2');
+        $_REQUEST=['a'=>'1','b'=>3];
+        Route::G()->run();
 ////
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
 
     }
 }
 class BaseApi
 {
-    //use \DuckPhp\SingletonEx\SingletonEx;
+    //use \DuckPhp\SingletonEx\SingletonExTrait;
 }
 class testAPI extends BaseApi
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo()
     {
         return DATE(DATE_ATOM);

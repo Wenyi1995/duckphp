@@ -7,11 +7,11 @@ require(__DIR__.'/../../../autoload.php');  // @DUCKPHP_HEADFILE
 
 use DuckPhp\DuckPhp;
 use DuckPhp\Ext\JsonRpcExt;
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 
 class CalcService
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function add($a, $b)
     {
         return $a + $b;
@@ -44,7 +44,7 @@ EOT;
 }
 
 $options = [
-    //'is_debug'=>true,
+    'is_debug'=>true,
     'namespace_controller' => '\\',
     'ext' => [
         JsonRpcExt::class => [
@@ -57,7 +57,7 @@ $options = [
 ];
 
 DuckPhp::RunQuickly($options, function () {
-    $url = DuckPhp::Domain().$_SERVER['SCRIPT_NAME'].'/json_rpc';
-    $ip = $_SERVER['SERVER_ADDR'].':'.$_SERVER['SERVER_PORT'];
+    $url = DuckPhp::Domain(true).$_SERVER['SCRIPT_NAME'].'/json_rpc';
+    $ip = ($_SERVER['SERVER_ADDR'] ?? '127.0.0.1').':'.$_SERVER['SERVER_PORT'];
     JsonRpcExt::G()->options['jsonrpc_backend'] = [$url,$ip];
 });

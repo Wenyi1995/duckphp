@@ -7,26 +7,22 @@ class ExtendableStaticCallTraitTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(ExtendableStaticCallTrait::class);
+        \LibCoverage\LibCoverage::Begin(ExtendableStaticCallTrait::class);
         
         //code here
         ExtendableStaticCallTraitObject::AssignExtendStaticMethod('Foo',[static::class,'Foo']);
-        ExtendableStaticCallTraitObject::AssignExtendStaticMethod(['Foo1'=>[ExtendableStaticCallTraitObject::class.'::G','FooX']]);
-        ExtendableStaticCallTraitObject::AssignExtendStaticMethod(['Foo2'=>ExtendableStaticCallTraitObject::class.'::G'.'::'.'FooX']);
+        ExtendableStaticCallTraitObject::AssignExtendStaticMethod(['Foo1'=> ExtendableStaticCallTraitObject::class .'@FooX']);
+        ExtendableStaticCallTraitObject::AssignExtendStaticMethod(['Foo2'=>ExtendableStaticCallTraitObject::class .'->FooX']);
+        //ExtendableStaticCallTraitObject::AssignExtendStaticMethod(['Foo2'=>ExtendableStaticCallTraitObject::class.'::G'.'::'.'FooX']);
         
         ExtendableStaticCallTraitObject::GetExtendStaticMethodList();
         
         ExtendableStaticCallTraitObject::Foo(123);
-        
         ExtendableStaticCallTraitObject::Foo1(123);
+        ExtendableStaticCallTraitObject::Foo2(123);
 
-        try{
-        
-            ExtendableStaticCallTraitObject::Foo2(123);
-        }catch(\Throwable $ex){
-        }
          try{
-            ExtendableStaticCallTraitObject::Foo3(123);
+            ExtendableStaticCallTraitObject::Foo2(123);
         }catch(\Throwable $ex){
         }
         try{
@@ -34,7 +30,7 @@ class ExtendableStaticCallTraitTest extends \PHPUnit\Framework\TestCase
         }catch(\Throwable $ex){
         }
         
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
         /*
 
         ExtendableStaticCallTraitObject::__callStatic($name, $arguments);

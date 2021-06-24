@@ -2,16 +2,19 @@
 namespace tests\DuckPhp;
 
 use DuckPhp\DuckPhp;
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 use DuckPhp\Ext\Misc;
 
 class DuckPhpTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        $extFile=dirname(\MyCodeCoverage::G()->classToPath(DuckPhp::class)).'/Core/Functions.php';
-        \MyCodeCoverage::G()->prepareAttachFile($extFile);
-        \MyCodeCoverage::G()->begin(DuckPhp::class);
+        $ref = new \ReflectionClass(DuckPhp::class);
+        $path = $ref->getFileName();
+        
+        $extFile=dirname($path).'/Core/Functions.php';
+        \LibCoverage\LibCoverage::G()->addExtFile($extFile);
+        \LibCoverage\LibCoverage::Begin(DuckPhp::class);
         
         //code here
         //$handler=null;
@@ -21,15 +24,14 @@ class DuckPhpTest extends \PHPUnit\Framework\TestCase
         //DuckPhp::G()->onSwooleHttpdInit($SwooleHttpd, false,function(){var_dump("OK");});
         //DuckPhp::G()->onSwooleHttpdInit($SwooleHttpd,true,null);
 
-        $path_lib=\MyCodeCoverage::GetClassTestPath(DuckPhp::class).'lib/';
-        $path_view=\MyCodeCoverage::GetClassTestPath(DuckPhp::class).'views/';
+        $path_view=\LibCoverage\LibCoverage::G()->getClassTestPath(DuckPhp::class).'views/';
 
         $options=[
-            'path_lib'=>$path_lib,
             'log_sql_query'=>true,
             'use_short_functions'=>true,
             'mode_no_path_info'=>true,
             'path_view'=>$path_view,
+            'path_info_compact_enable'=>true,
         ];
         DuckPhp::G()->init($options);
         DuckPhp::G()->system_wrapper_replace([
@@ -64,7 +66,7 @@ class DuckPhpTest extends \PHPUnit\Framework\TestCase
 
         $t=new \stdClass();
         DuckPhp::Cache($t);
-        \MyCodeCoverage::G()->end(DuckPhp::class);
+        \LibCoverage\LibCoverage::End(DuckPhp::class);
 
     }
     protected function doFunctions()
@@ -73,7 +75,19 @@ class DuckPhpTest extends \PHPUnit\Framework\TestCase
         \__l("test");
         \__hl("test");
         \__url("test");
+        \__json("test");
+        \__domain();
         \__display("block",[]);
+        \__trace_dump();
+        \__var_dump("abc");
+        \__debug_log("OK");
+        
+        \__is_debug();
+        \__is_real_debug();
+        \__platform();
+        \__logger();
+
+
     }
 }
 class fakeSwooleHttpd
@@ -101,11 +115,11 @@ class fakeSwooleHttpd
 }
 class FakeService
 {
-use SingletonEx;
+    use SingletonExTrait;
 }
 class FakeObject 
 {
-    use SingletonEx;
+    use SingletonExTrait;
     
 }
 

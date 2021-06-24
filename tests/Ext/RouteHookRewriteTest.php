@@ -2,6 +2,7 @@
 namespace tests\DuckPhp\Ext;
 
 use DuckPhp\Ext\RouteHookRewrite;
+use DuckPhp\Ext\SuperGlobalContext;
 use DuckPhp\Core\Route;
 use DuckPhp\DuckPhp;
 
@@ -9,7 +10,7 @@ class RouteHookRewriteTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(RouteHookRewrite::class);
+        \LibCoverage\LibCoverage::Begin(RouteHookRewrite::class);
         $route_options=[
             'is_debug'=>true,
             'namespace'=>__NAMESPACE__,
@@ -39,9 +40,14 @@ class RouteHookRewriteTest extends \PHPUnit\Framework\TestCase
         echo "-----------xxxxxxxxxxxxxxxxxxxxx-----\n";
         RouteHookRewrite::G()->filteRewrite('k/v?a=b&g=h');
 
-                        RouteHookRewrite::G()->isInited();
+        RouteHookRewrite::G()->isInited();
+        
+        SuperGlobalContext::DefineSuperGlobalContext();
+        
+        Route::G()->bind('/article/3/4')->run();
 
-        \MyCodeCoverage::G()->end();
+
+        \LibCoverage\LibCoverage::End();
     }
 }
 class RouteHookRewriteTestMain{

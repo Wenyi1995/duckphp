@@ -7,10 +7,11 @@ class RuntimeStateTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(RuntimeState::class);
+        \LibCoverage\LibCoverage::Begin(RuntimeState::class);
         
+        RuntimeState::G()->init(['use_output_buffer'=>true]);
         RuntimeState::G()->isRunning();
-        RuntimeState::G()->ReCreateInstance()->init(['use_output_buffer'=>true])->run();
+        RuntimeState::G()->reset();
         RuntimeState::G()->clear();
         
         RuntimeState::G()->toggleInException();
@@ -20,13 +21,7 @@ class RuntimeStateTest extends \PHPUnit\Framework\TestCase
         
         RuntimeState::G()->isInited();
 
-        \MyCodeCoverage::G()->end();
-        /*
-        RuntimeState::G()->isRunning();
-        RuntimeState::G()->ReCreateInstance();
-        RuntimeState::G()->begin();
-        RuntimeState::G()->end();
-        RuntimeState::G()->skipNoticeError();
-        //*/
+        \LibCoverage\LibCoverage::End();
+
     }
 }

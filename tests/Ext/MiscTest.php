@@ -3,14 +3,14 @@ namespace tests\DuckPhp\Ext;
 
 use DuckPhp\Ext\Misc;
 use DuckPhp\DuckPhp;
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 
 class MiscTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(Misc::class);
-        $path_lib=\MyCodeCoverage::GetClassTestPath(Misc::class);
+        \LibCoverage\LibCoverage::Begin(Misc::class);
+        $path_lib=\LibCoverage\LibCoverage::G()->getClassTestPath(Misc::class);
         $options=[
             'path'=>$path_lib,
             'path_lib'=>'',
@@ -43,9 +43,9 @@ class MiscTest extends \PHPUnit\Framework\TestCase
         DuckPhp::G()->init($options)->run();
         
         
-        DuckPhp::G()->setRouteCallingMethod('m1');
+        DuckPhp::Route()->setRouteCallingMethod('m1');
 
-        DuckPhp::G()->setRouteCallingMethod('m1');
+        DuckPhp::Route()->setRouteCallingMethod('m1');
         
         $object=new \stdClass();
         Misc::DI('a',$object);
@@ -66,7 +66,7 @@ class MiscTest extends \PHPUnit\Framework\TestCase
                     Misc::CallAPI(FakeService::class,'m1',['id'=>'1']);
         Misc::G()->isInited();
 
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
         /*
         Misc::G()->init($options=[], $context=null);
         Misc::G()->_Import($file);
@@ -85,7 +85,7 @@ interface FakeInterface
 }
 class FakeService
 {
-    use SingletonEx;
+    use SingletonExTrait;
 
     public function m1(int $id,string $name="xx")
     {
@@ -101,7 +101,7 @@ class FakeObject
     public $fakeService=null;
     public $notServcieVar=null;
     
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo()
     {
         var_dump(DATE(DATE_ATOM));

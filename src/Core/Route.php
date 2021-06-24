@@ -10,6 +10,7 @@ use DuckPhp\Core\ComponentBase;
 class Route extends ComponentBase
 {
     use Route_UrlManager;
+    use Route_Helper;
     
     const HOOK_PREPEND_OUTTER = 'prepend-outter';
     const HOOK_PREPEND_INNER = 'prepend-inner';
@@ -17,27 +18,27 @@ class Route extends ComponentBase
     const HOOK_APPPEND_OUTTER = 'append-outter';
     
     public $options = [
-            'namespace' => 'LazyToChange',
-            'namespace_controller' => 'Controller',
-            
-            'controller_base_class' => null,
-            'controller_welcome_class' => 'Main',
-            
-            'controller_hide_boot_class' => false,
-            'controller_methtod_for_miss' => '_missing',
-            'controller_prefix_post' => 'do_',
-            'controller_class_postfix' => '',
-            'controller_enable_slash' => false,
-            'controller_path_ext' => '',
-            'controller_use_singletonex' => false,
-            'skip_fix_path_info' => false,
-        ];
-    //public input;
-    public $request_method = '';
+        'namespace' => '',
+        'namespace_controller' => 'Controller',
+        
+        'controller_base_class' => '',
+        'controller_welcome_class' => 'Main',
+        
+        'controller_hide_boot_class' => false,
+        'controller_methtod_for_miss' => '__missing',
+        'controller_prefix_post' => 'do_',
+        'controller_class_postfix' => '',
+        'controller_enable_slash' => false,
+        'controller_path_prefix' => '',
+        'controller_path_ext' => '',
+        'controller_use_singletonex' => false,
+        'controller_stop_static_method' => true,
+        'controller_strict_mode' => true,
+        'controller_class_map' => [],
+    ];
 
     public $pre_run_hook_list = [];
     public $post_run_hook_list = [];
-    
     
     //input
     protected $path_info = '';
@@ -45,7 +46,6 @@ class Route extends ComponentBase
 
     //calculated options;
     protected $namespace_prefix = '';
-    protected $base_class = null;
     protected $index_method = 'index'; //const
 
     //properties
@@ -55,7 +55,6 @@ class Route extends ComponentBase
     protected $calling_method = '';
     
     //flags
-    protected $has_bind_server_data = false;
     protected $enable_default_callback = true;
     protected $is_failed = false;
 
@@ -71,15 +70,18 @@ class Route extends ComponentBase
     {
         return static::G();
     }
-    public static function Parameter($key, $default = null)
+    public static function Parameter($key = null, $default = null)
     {
         return static::G()->_Parameter($key, $default);
     }
-    public function _Parameter($key, $default = null)
+    public function _Parameter($key = null, $default = null)
     {
-        return $this->parameters[$key] ?? $default;
+        if (isset($key)) {
+            return $this->parameters[$key] ?? $default;
+        } else {
+            return  $this->parameters;
+        }
     }
-    
     //@override
     protected function initOptions(array $options)
     {
@@ -90,81 +92,40 @@ class Route extends ComponentBase
         }
         $namespace_controller = trim($namespace_controller, '\\');
         $this->namespace_prefix = $namespace_controller.'\\';
-        
-        $this->base_class = $this->options['controller_base_class'];
-        if ($this->base_class && substr($this->base_class, 0, 1) === '~') {
-            $this->base_class = $this->namespace_prefix.substr($this->base_class, 1);
-        }
-        $this->path_info = $_SERVER['PATH_INFO'] ?? '';
-        $this->request_method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     }
-    public function prepare($server)
+    public function reset()
     {
-        $this->prepareForUrl($server);
-        $this->request_method = $server['REQUEST_METHOD'] ?? 'GET';
-        //REQUEST_URI
-        //SCRIPT_FILENAME
-        
-        $this->path_info = $this->fixPathInfo($server, $this->path_info);
-        $this->has_bind_server_data = true;
+        $this->is_failed = false;
+        $this->enable_default_callback = true;
         return $this;
-    }
-    protected function fixPathInfo($serverData, $default)
-    {
-        if ($this->options['skip_fix_path_info']) {
-            return $serverData['PATH_INFO'] ?? $default;
-        }
-
-        if (!empty($serverData['PATH_INFO'])) {
-            return $serverData['PATH_INFO'] ?? $default;
-        }
-        if (!isset($serverData['REQUEST_URI'])) {
-            return $serverData['PATH_INFO'] ?? $default;
-        }
-        $request_path = (string)parse_url($serverData['REQUEST_URI'], PHP_URL_PATH);
-        $request_file = substr($serverData['SCRIPT_FILENAME'], strlen($serverData['DOCUMENT_ROOT']));
-        
-        if ($request_file === '/index.php' && substr($request_path, 0, strlen($request_file)) !== '/index.php') {
-            $path_info = $request_path;
-        } else {
-            $path_info = substr($request_path, strlen($request_file));
-        }
-        
-        return $path_info;
     }
     public function bind($path_info, $request_method = 'GET')
     {
+        $this->reset();
+
         $path_info = parse_url($path_info, PHP_URL_PATH);
-        
-        if (!$this->has_bind_server_data) {
-            $this->prepare($_SERVER);
-        }
-        $this->path_info = $path_info;
-        
+        $this->setPathInfo($path_info);
         if (isset($request_method)) {
-            $this->request_method = $request_method;
+            $_SERVER['REQUEST_METHOD'] = $request_method;
+            if (defined('__SUPERGLOBAL_CONTEXT')) {
+                (__SUPERGLOBAL_CONTEXT)()->_SERVER = $_SERVER;
+            }
         }
         return $this;
     }
-    protected function beforeRun()
-    {
-        $this->is_failed = false;
-        if (!$this->has_bind_server_data) {
-            $this->prepare($_SERVER);
-        }
-    }
     public function run()
     {
-        $this->beforeRun();
+        $this->reset();
+        
         foreach ($this->pre_run_hook_list as $callback) {
-            $flag = ($callback)($this->path_info);
+            $flag = ($callback)($this->getPathInfo());
             if ($flag) {
                 return $this->getRunResult();
             }
         }
         
         if ($this->enable_default_callback) {
-            $flag = $this->defaultRunRouteCallback($this->path_info);
+            $flag = $this->defaultRunRouteCallback($this->getPathInfo());
             if ($flag && (!$this->is_failed)) {
                 return $this->getRunResult();
             }
@@ -173,7 +134,7 @@ class Route extends ComponentBase
         }
         
         foreach ($this->post_run_hook_list as $callback) {
-            $flag = ($callback)($this->path_info);
+            $flag = ($callback)($this->getPathInfo());
             if ($flag) {
                 return $this->getRunResult();
             }
@@ -189,6 +150,7 @@ class Route extends ComponentBase
     }
     public function forceFail()
     {
+        // TODO . force result ?
         $this->is_failed = true;
     }
     public function addRouteHook($callback, $position, $once = true)
@@ -238,7 +200,18 @@ class Route extends ComponentBase
     }
     public function defaultGetRouteCallback($path_info)
     {
-        $path_info = ltrim($path_info, '/');
+        $path_info = ltrim((string)$path_info, '/');
+        
+        if ($this->options['controller_path_prefix'] ?? false) {
+            $prefix = trim($this->options['controller_path_prefix'], '/').'/';
+            $l = strlen($prefix);
+            if (substr($path_info, 0, $l) !== $prefix) {
+                $this->route_error = "path_prefix error";
+                return false;
+            }
+            $path_info = substr($path_info, $l - 1);
+            $path_info = ltrim((string)$path_info, '/');
+        }
         if ($this->options['controller_enable_slash']) {
             $path_info = rtrim($path_info, '/');
         }
@@ -268,14 +241,24 @@ class Route extends ComponentBase
             $this->route_error = "can't find class($full_class) by $path_class ";
             return null;
         }
+        if ($this->options['controller_strict_mode']) {
+            /** @var object */ $t = ''.ltrim($full_class, '\\');
+            $full_class = $t; // phpstan ,I hate you.
+            if ($full_class !== (new \ReflectionClass($full_class))->getName()) {
+                $this->route_error = "can't find class($full_class) by $path_class (strict_mode miss case).";
+                return null;
+            }
+        }
+        
         
         $this->calling_class = $full_class;
         $this->calling_method = !empty($method)?$method:'index';
         
-        /** @var mixed */ $base_class = $this->base_class; // phpstan
+        /** @var string */
+        $base_class = str_replace('~', $this->namespace_prefix, $this->options['controller_base_class']);
         /** @var mixed */ $class = $full_class; // phpstan
         if (!empty($base_class) && !is_subclass_of($class, $base_class)) {
-            $this->route_error = "no the controller_base_class! {$this->base_class} ";
+            $this->route_error = "no the controller_base_class! {$base_class} ";
             return null;
         }
         $object = $this->createControllerObject($full_class);
@@ -284,63 +267,67 @@ class Route extends ComponentBase
 
     protected function createControllerObject($full_class)
     {
-        if (!$this->options['controller_use_singletonex'] || !is_callable([$full_class,'G'])) {
-            return new $full_class();
-        }
-        $object = $full_class::G();
-        $class_name = get_class($object);
-        if ($class_name == $full_class) {
-            $full_class::G(new \stdClass);
-            return $object;
-        }
-        if ($class_name === 'stdClass') {
-            return new $full_class();
-        }
-        $object = new $class_name();
-        return $object;
+        $full_class = $this->options['controller_class_map'][$full_class] ?? $full_class;
+        return new $full_class();
     }
     protected function getMethodToCall($object, $method)
     {
-        $method = ($method === '')?$this->index_method : $method;
+        $method = ($method === '') ? $this->index_method : $method;
         if (substr($method, 0, 2) == '__') {
             $this->route_error = 'can not call hidden method';
             return null;
         }
-        if ($this->options['controller_use_singletonex'] && $method === 'G') {
-            $this->route_error = 'can not call G()';
-            return null;
-        }
-        if ($this->options['controller_prefix_post'] && $this->request_method === 'POST' && method_exists($object, $this->options['controller_prefix_post'].$method)) {
+        $_SERVER = defined('__SUPERGLOBAL_CONTEXT') ? (__SUPERGLOBAL_CONTEXT)()->_SERVER : $_SERVER;
+        $_SERVER['REQUEST_METHOD'] = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        if ($this->options['controller_prefix_post'] && $_SERVER['REQUEST_METHOD'] === 'POST' && method_exists($object, $this->options['controller_prefix_post'].$method)) {
             $method = $this->options['controller_prefix_post'].$method;
         }
         if ($this->options['controller_methtod_for_miss']) {
-            if ($method === $this->options['controller_methtod_for_miss']) {
-                $this->route_error = 'can not direct call controller_methtod_for_miss ';
-                return null;
-            }
             if (!method_exists($object, $method)) {
                 $method = $this->options['controller_methtod_for_miss'];
             }
+            if ($this->options['controller_strict_mode']) {
+                try {
+                    if ($method !== (new \ReflectionMethod($object, $method))->getName()) {
+                        $this->route_error = 'method can not call(strict_mode miss case)';
+                        return null;
+                    }
+                } catch (\ReflectionException $ex) {
+                    $this->route_error = 'method can not call';
+                    return null;
+                }
+            } else {
+                if (!is_callable([$object,$method])) {
+                    $this->route_error = 'method can not call';
+                    return null;
+                }
+            }
         }
-        if (!is_callable([$object,$method])) {
-            $this->route_error = 'method can not call';
-            return null;
+        
+        if ($this->options['controller_stop_static_method']) {
+            $ref = new \ReflectionMethod($object, $method);
+            if ($ref->isStatic()) {
+                $this->route_error = 'can not call static function';
+                return null;
+            }
         }
         return [$object,$method];
     }
-    
+}
+trait Route_Helper
+{
     ////
     public function getPathInfo()
     {
-        return $this->path_info;
+        $_SERVER = defined('__SUPERGLOBAL_CONTEXT') ? (__SUPERGLOBAL_CONTEXT)()->_SERVER : $_SERVER;
+        return $_SERVER['PATH_INFO'] ?? '';
     }
     public function setPathInfo($path_info)
     {
-        $this->path_info = $path_info;
-    }
-    public function getParameters()
-    {
-        return $this->parameters;
+        $_SERVER['PATH_INFO'] = $path_info;
+        if (defined('__SUPERGLOBAL_CONTEXT')) {
+            (__SUPERGLOBAL_CONTEXT)()->_SERVER = $_SERVER;
+        }
     }
     public function setParameters($parameters)
     {
@@ -366,7 +353,7 @@ class Route extends ComponentBase
     {
         $this->calling_method = $calling_method;
     }
-    public function getNamespacePrefix()
+    public function getControllerNamespacePrefix()
     {
         return $this->namespace_prefix;
     }
@@ -381,20 +368,20 @@ class Route extends ComponentBase
     }
     public function replaceControllerSingelton($old_class, $new_class)
     {
-        $old_class::G((new \ReflectionClass($new_class))->newInstanceWithoutConstructor());
+        //$old_class::G((new \ReflectionClass($new_class))->newInstanceWithoutConstructor());
+        $this->options['controller_class_map'][$old_class] = $new_class;
     }
 }
 trait Route_UrlManager
 {
-    public $script_filename = '';
-    public $document_root = '';
-    
     protected $url_handler = null;
-    //protected $path_info = '';
-    
     public static function Url($url = null)
     {
         return static::G()->_Url($url);
+    }
+    public static function Domain($use_scheme = false)
+    {
+        return static::G()->_Domain($use_scheme);
     }
     public function _Url($url = null)
     {
@@ -403,17 +390,35 @@ trait Route_UrlManager
         }
         return $this->defaultUrlHandler($url);
     }
-    public function defaultUrlHandler($url = null)
+    public function _Domain($use_scheme = false)
     {
-        if (isset($url) && strlen($url) > 0 && substr($url, 0, 1) === '/') {
-            return $url;
+        $_SERVER = defined('__SUPERGLOBAL_CONTEXT') ? (__SUPERGLOBAL_CONTEXT)()->_SERVER : $_SERVER;
+        $scheme = $_SERVER['REQUEST_SCHEME'] ?? '';
+        //$scheme = $use_scheme ? $scheme :'';
+        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? ($_SERVER['SERVER_ADDR'] ?? ''));
+        $host = $host ?? '';
+        
+        $port = $_SERVER['SERVER_PORT'] ?? '';
+        $port = ($port == 443 && $scheme == 'https')?'':$port;
+        $port = ($port == 80 && $scheme == 'http')?'':$port;
+        $port = ($port)?(':'.$port):'';
+
+        $host = (strpos($host, ':'))? strstr($host, ':', true) : $host;
+        
+        $ret = $scheme.':/'.'/'.$host.$port;
+        if (!$use_scheme) {
+            $ret = substr($ret, strlen($scheme) + 1);
         }
-        
+        return $ret;
+    }
+    protected function getUrlBasePath()
+    {
+        $_SERVER = defined('__SUPERGLOBAL_CONTEXT') ? (__SUPERGLOBAL_CONTEXT)()->_SERVER : $_SERVER;
         //get basepath.
-        $document_root = rtrim($this->document_root, '/');
-        $basepath = substr(rtrim($this->script_filename, '/'), strlen($document_root));
-        
-        /* something error ?
+        $document_root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+        $basepath = substr(rtrim($_SERVER['SCRIPT_FILENAME'], '/'), strlen($document_root));
+
+        /* something wrong ?
         if (substr($basepath, -strlen('/index.php'))==='/index.php') {
             $basepath=substr($basepath, 0, -strlen('/index.php'));
         }
@@ -421,22 +426,28 @@ trait Route_UrlManager
         if ($basepath === '/index.php') {
             $basepath = '/';
         }
+        $prefix = $this->options['controller_path_prefix']? '/'.trim($this->options['controller_path_prefix'], '/') : '';
+        $basepath .= $prefix;
+        return $basepath;
+    }
+    public function defaultUrlHandler($url = null)
+    {
+        if (isset($url) && strlen($url) > 0 && substr($url, 0, 1) === '/') {
+            return $url;
+        }
+        $basepath = $this->getUrlBasePath();
+        $path_info = $this->getPathInfo();
+
         if ('' === $url) {
             return $basepath;
         }
         if (isset($url) && '?' === substr($url, 0, 1)) {
-            $path_info = $this->path_info;
             return $basepath.$path_info.$url;
         }
         if (isset($url) && '#' === substr($url, 0, 1)) {
-            $path_info = $this->path_info;
             return $basepath.$path_info.$url;
         }
-        // ugly.
-        $basepath = rtrim($basepath, '/');
-        $url = '/'.$url;
-        
-        return $basepath.$url;
+        return rtrim($basepath, '/').'/'.ltrim(''.$url, '/');
     }
     public function setUrlHandler($callback)
     {
@@ -445,10 +456,5 @@ trait Route_UrlManager
     public function getUrlHandler()
     {
         return $this->url_handler;
-    }
-    protected function prepareForUrl($serverData)
-    {
-        $this->script_filename = $serverData['SCRIPT_FILENAME'] ?? '';
-        $this->document_root = $serverData['DOCUMENT_ROOT'] ?? '';
     }
 }

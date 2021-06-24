@@ -17,8 +17,7 @@ class ComponentBase implements ComponentInterface
     public static function G($object = null)
     {
         if (defined('__SINGLETONEX_REPALACER')) {
-            $callback = __SINGLETONEX_REPALACER;
-            return ($callback)(static::class, $object);
+            return (__SINGLETONEX_REPALACER)(static::class, $object);
         }
         if ($object) {
             self::$_instances[static::class] = $object;
@@ -46,6 +45,15 @@ class ComponentBase implements ComponentInterface
     {
         return $this->is_inited;
     }
+    /*
+    public function checkInstall($context)
+    {
+        if($this->isInited){
+            return;
+        }
+        $this->init($context->options,$context);
+    }
+    */
     //for override
     protected function initOptions(array $options)
     {
@@ -55,31 +63,20 @@ class ComponentBase implements ComponentInterface
     {
     }
     //helper
-    protected function getComponenetPathByKey($path_key): string
+    protected function getComponenetPathByKey($path_key, $path_key_parent = 'path'): string
     {
         if (DIRECTORY_SEPARATOR === '/') {
             if (substr($this->options[$path_key], 0, 1) === '/') {
                 return rtrim($this->options[$path_key], '/').'/';
             } else {
-                return $this->options['path'].rtrim($this->options[$path_key], '/').'/';
+                return $this->options[$path_key_parent].rtrim($this->options[$path_key], '/').'/';
             }
         } else { // @codeCoverageIgnoreStart
             if (substr($this->options[$path_key], 1, 1) === ':') {
                 return rtrim($this->options[$path_key], '\\').'\\';
             } else {
-                return $this->options['path'].rtrim($this->options[$path_key], '\\').'\\';
+                return $this->options[$path_key_parent].rtrim($this->options[$path_key], '\\').'\\';
             } // @codeCoverageIgnoreEnd
         }
-    }
-    protected function getComponenetNamespace($namespace_key)
-    {
-        $namespace = $this->options['namespace'];
-        $namespace_componenet = $this->options[$namespace_key];
-        if (substr($namespace_componenet, 0, 1) !== '\\') {
-            $namespace_componenet = rtrim($namespace, '\\').'\\'.$namespace_componenet;
-        }
-        $namespace_componenet = trim($namespace_componenet, '\\');
-        
-        return $namespace_componenet;
     }
 }

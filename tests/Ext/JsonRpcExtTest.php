@@ -1,6 +1,6 @@
 <?php
 namespace tests\DuckPhp\Ext{
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 
 use DuckPhp\Ext\JsonRpcExt;
 use DuckPhp\HttpServer\HttpServer;
@@ -10,8 +10,8 @@ class JsonRpcExtTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(JsonRpcExt::class);
-        $path_app=\MyCodeCoverage::GetClassTestPath(JsonRpcExt::class);
+        \LibCoverage\LibCoverage::Begin(JsonRpcExt::class);
+        $path_app=\LibCoverage\LibCoverage::G()->getClassTestPath(JsonRpcExt::class);
         
         $ret=JsonRpcExt::G()->onRpcCall([
             'method'=>TestService::class.'.foo',
@@ -94,7 +94,7 @@ class JsonRpcExtTest extends \PHPUnit\Framework\TestCase
         var_dump($data);
         HttpServer::G()->close();
         JsonRpcExt::G()->isInited();
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
         /*
         JsonRpcExt::G()->init($options=[], $context);
         JsonRpcExt::G()->getRealClass($object);
@@ -116,7 +116,7 @@ interface testInterface
 
 class TestService2 implements testInterface
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo()
     {
         return 'Client:'.DATE(DATE_ATOM);
@@ -127,10 +127,10 @@ class TestService2 implements testInterface
 namespace
 {
 
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 class TestService
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo()
     {
         return 'Client:'.DATE(DATE_ATOM);

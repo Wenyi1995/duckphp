@@ -11,6 +11,7 @@ class RouteHookRewrite extends ComponentBase
 {
     public $options = [
         'rewrite_map' => [],
+        'rewrite_auto_extend_method' => true,
     ];
     protected $rewrite_map = [];
     protected $context_class;
@@ -29,11 +30,11 @@ class RouteHookRewrite extends ComponentBase
     {
         $this->context_class = get_class($context);
         ($this->context_class)::Route()->addRouteHook([static::class,'Hook'], 'prepend-outter');
-        if (\method_exists($context, 'extendComponents')) {
+        if ($this->options['rewrite_auto_extend_method'] && \method_exists($context, 'extendComponents')) {
             $context->extendComponents(
                 [
-                    'assignRewrite' => [static::class.'::G','assignRewrite'],
-                    'getRewrites' => [static::class.'::G','getRewrites']
+                    'assignRewrite' => static::class . '@assignRewrite',
+                    'getRewrites' => static::class . '@getRewrites',
                 ],
                 ['C','A']
             );
@@ -135,13 +136,22 @@ class RouteHookRewrite extends ComponentBase
         $path = parse_url($url, PHP_URL_PATH);
         $input_get = [];
         parse_str((string) parse_url($url, PHP_URL_QUERY), $input_get);
-        ($this->context_class)::SuperGlobal()->_SERVER['init_get'] = ($this->context_class)::SuperGlobal()->_GET;
-        ($this->context_class)::SuperGlobal()->_GET = $input_get;
+        
+        
+        
+        $_SERVER['init_get'] = $_GET;
+        $_GET = $input_get;
+        
+        if (defined('__SUPERGLOBAL_CONTEXT')) {
+            (__SUPERGLOBAL_CONTEXT)()->_SERVER = $_SERVER;
+            (__SUPERGLOBAL_CONTEXT)()->_GET = $_GET;
+        }
     }
     protected function doHook($path_info)
     {
         $path_info = ltrim($path_info, '/');
-        $query = ($this->context_class)::SuperGlobal()->_GET;
+        $_GET = defined('__SUPERGLOBAL_CONTEXT') ? (__SUPERGLOBAL_CONTEXT)()->_GET : $_GET;
+        $query = $_GET;
         $query = $query?'?'.http_build_query($query):'';
         
         $input_url = $path_info.$query;

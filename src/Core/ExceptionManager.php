@@ -69,7 +69,9 @@ class ExceptionManager extends ComponentBase
     }
     public function _CallException($ex)
     {
-        foreach ($this->exceptionHandlers as $class => $callback) {
+        $t = $this->exceptionHandlers;
+        $t = array_reverse($t);
+        foreach ($t as $class => $callback) {
             if (is_a($ex, $class)) {
                 ($callback)($ex);
                 return;
@@ -106,10 +108,16 @@ class ExceptionManager extends ComponentBase
                 $this->last_exception_handler = ($this->system_exception_handler)([$this,'_CallException']);
             } else {
                 /** @var mixed */
-                $handler = [$this,'_CallException'];
+                $handler = [static::class,'CallException'];
                 $this->last_exception_handler = set_exception_handler($handler);
             }
         }
+    }
+    public function reset()
+    {
+        // $this->exceptionHandlers = [];
+        // $this->default_exception_handler = null;
+        return $this;
     }
     public function clear()
     {

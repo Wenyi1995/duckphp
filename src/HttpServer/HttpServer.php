@@ -8,48 +8,42 @@ namespace DuckPhp\HttpServer;
 class HttpServer
 {
     public $options = [
-            'host' => '127.0.0.1',
-            'port' => '8080',
-            'path' => '',
-            'path_document' => 'public',
-        ];
+        'host' => '127.0.0.1',
+        'port' => '8080',
+        'path' => '',
+        'path_document' => 'public',
+        // 'docroot'
+        // 'dry'
+        //'background' =>true,
+    ];
     protected $cli_options = [
-            'help' => [
-                'short' => 'h',
-                'desc' => 'show this help;',
-            ],
-            'host' => [
-                'short' => 'H',
-                'desc' => 'set server host,default is 127.0.0.1',
-                'required' => true,
-            ],
-            'port' => [
-                'short' => 'P',
-                'desc' => 'set server port,default is 8080',
-                'required' => true,
-            ],
-            'inner-server' => [
-                'short' => 'i',
-                'desc' => 'use inner server',
-            ],
-            'docroot' => [
-                'short' => 't',
-                'desc' => 'document root',
-                'required' => true,
-            ],
-            'file' => [
-                'short' => 'f',
-                'desc' => 'index file',
-                'required' => true,
-            ],
-            'dry' => [
-                'desc' => 'dry mode, just show cmd',
-            ],
-            'background' => [
-                'short' => 'b',
-                'desc' => 'run background',
-            ],
-        ];
+        'help' => [
+            'short' => 'h',
+            'desc' => 'show this help;',
+        ],
+        'host' => [
+            'short' => 'H',
+            'desc' => 'set server host,default is 127.0.0.1',
+            'required' => true,
+        ],
+        'port' => [
+            'short' => 'P',
+            'desc' => 'set server port,default is 8080',
+            'required' => true,
+        ],
+        'docroot' => [
+            'short' => 't',
+            'desc' => 'document root',
+            'required' => true,
+        ],
+        'dry' => [
+            'desc' => 'dry mode, just show cmd',
+        ],
+        'background' => [
+            'short' => 'b',
+            'desc' => 'run background',
+        ],
+    ];
     public $pid = 0;
     
     protected $cli_options_ex = [];
@@ -65,8 +59,7 @@ class HttpServer
     public static function G($object = null)
     {
         if (defined('__SINGLETONEX_REPALACER')) {
-            $callback = __SINGLETONEX_REPALACER;
-            return ($callback)(static::class, $object);
+            return (__SINGLETONEX_REPALACER)(static::class, $object);
         }
         if ($object) {
             self::$_instances[static::class] = $object;
@@ -93,7 +86,7 @@ class HttpServer
         $this->options = array_replace_recursive($this->options, $options);
         $this->host = $this->options['host'];
         $this->port = $this->options['port'];
-        $this->args = $this->parseCaptures($this->cli_options);
+        $this->args = $this->parseCaptures($this->cli_options); // TODO remove
         
         $this->docroot = rtrim($this->options['path'] ?? '', '/').'/'.$this->options['path_document'];
         
@@ -211,7 +204,7 @@ class HttpServer
             $this->pid = (int)$pid;
             return $pid;
         }
-        echo "DuckPhp running at : http://$host:$port/ \n"; // @codeCoverageIgnore
+        echo "DuckPhp running at : http://{$this->host}:{$this->port}/ \n"; // @codeCoverageIgnore
         return system($cmd); // @codeCoverageIgnore
     }
 }

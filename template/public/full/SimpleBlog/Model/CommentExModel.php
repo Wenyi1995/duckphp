@@ -5,9 +5,9 @@
  */
 namespace SimpleBlog\Model;
 
-use SimpleBlog\Base\ModelHelper as M;
+use SimpleBlog\Helper\ModelHelper as M;
 
-//开发人员备注，这个表和
+//开发人员备注，这个模型不是和数据库表的对应。
 class CommentExModel extends BaseModel
 {
     public $table_name = "Comments";

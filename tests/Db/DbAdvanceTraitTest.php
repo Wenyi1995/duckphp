@@ -8,13 +8,12 @@ class DbAdvanceTraitTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(DbAdvanceTrait::class);
+        \LibCoverage\LibCoverage::Begin(DbAdvanceTrait::class);
         
-        $options=[
-	'dsn'=>"mysql:host=127.0.0.1;port=3306;dbname=DnSample;charset=utf8;",
-	'username'=>'admin',	
-	'password'=>'123456'
-];
+        $path_setting = \LibCoverage\LibCoverage::G()->getClassTestPath(Db::class);
+        $setting = include $path_setting . 'setting.php';
+        $options = $setting['database_list'][0];
+        
         $db=new Db();
         $db->init($options);
         
@@ -24,6 +23,7 @@ class DbAdvanceTraitTest extends \PHPUnit\Framework\TestCase
         $array=[1,2,3];
         $db->quoteIn($array);
         $db->quoteSetArray($array);
+        $db->quoteAndArray($array);
         $db->qouteInsertArray($array);
         $me=$db->findData('Users', 'aa', 'username');
                 
@@ -45,7 +45,7 @@ class DbAdvanceTraitTest extends \PHPUnit\Framework\TestCase
         $db->pdo=null;
         $db->qouteInsertArray($array);
         
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
         /*
         $db->quoteIn($array);
         $db->quoteSetArray($array);

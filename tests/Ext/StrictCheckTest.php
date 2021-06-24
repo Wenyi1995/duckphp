@@ -5,7 +5,7 @@ namespace tests\DuckPhp\Ext
 use DuckPhp\Ext\StrictCheck;
 use DuckPhp\DuckPhp;
 use DuckPhp\Core\Route;
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 
 use tests\DuckPhp\Ext\Model\FakeModel;
 use tests\DuckPhp\Ext\Service\FakeService;
@@ -14,8 +14,11 @@ class StrictCheckTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(StrictCheck::class);
-        $database_list = include \MyCodeCoverage::G()->options['path_data'] . 'database_list.php';
+        \LibCoverage\LibCoverage::Begin(StrictCheck::class);
+        
+        $path_setting = \LibCoverage\LibCoverage::G()->getClassTestPath(StrictCheck::class);
+        $setting = include $path_setting . 'setting.php';
+        $database_list = $setting['database_list'];
 
         $dn_options=[
             'error_404'=>null,
@@ -26,6 +29,7 @@ class StrictCheckTest extends \PHPUnit\Framework\TestCase
             'namespace'=> __NAMESPACE__,
             'controller_welcome_class'=> 'StrictCheckTestMain',
             'database_list'=>$database_list,
+            'cli_enable'=>false,
 
         ];
         StrictCheck::G(new StrictCheck_FakeObject);
@@ -45,9 +49,9 @@ class StrictCheckTest extends \PHPUnit\Framework\TestCase
 
         ];
         
-        $t=\MyCodeCoverage::G();
+        $t=\LibCoverage\LibCoverage::G();
         StrictCheck::G(new StrictCheck)->init($options, DuckPhp::G());
-        \MyCodeCoverage::G($t);
+        \LibCoverage\LibCoverage::G($t);
         Route::G()->bind('foo');
 
         DuckPhp::G()->run();
@@ -60,12 +64,12 @@ class StrictCheckTest extends \PHPUnit\Framework\TestCase
         //StrictCheck::G(new StrictCheck())->init($options)->checkStrictClass('NoExt',0);
         
 
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
     }
 }
 class StrictCheck_FakeObject
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function init($options,$context)
     {
         echo "FakeOject init...";
@@ -107,11 +111,11 @@ namespace tests\DuckPhp\Ext\Model {
 use DuckPhp\Ext\StrictCheckObjectTrait;
 use tests\DuckPhp\Ext\Service\FakeService;
 use DuckPhp\Helper\ModelHelper as M;
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 
 class FakeModel
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo(){
         var_dump(DATE(DATE_ATOM));
     }
@@ -124,7 +128,7 @@ class FakeModel
 }
 class FakeExModel
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo(){
         FakeModel::G()->foo();
     }
@@ -137,11 +141,11 @@ use DuckPhp\DuckPhp;
 use tests\DuckPhp\Ext\Model\FakeExModel;
 use tests\DuckPhp\Ext\Model\FakeModel;
 //use tests\DuckPhp\Ext\Model\FakeModel;
-use DuckPhp\SingletonEx\SingletonEx;
+use DuckPhp\SingletonEx\SingletonExTrait;
 
 class FakeService
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo(){
         FakeLib::G()->foo();
     }
@@ -162,7 +166,7 @@ class FakeService
 }
 class FakeBatchBusiness
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo(){
         FakeService::G()->foo();
     }
@@ -170,7 +174,7 @@ class FakeBatchBusiness
 
 class FakeLib
 {
-    use SingletonEx;
+    use SingletonExTrait;
     public function foo(){
         FakeExModel::G()->foo();
     }

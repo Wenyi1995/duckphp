@@ -7,12 +7,12 @@ class DbTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(Db::class);
-        $options=[
-	'dsn'=>"mysql:host=127.0.0.1;port=3306;dbname=DnSample;charset=utf8;",
-	'username'=>'admin',	
-	'password'=>'123456'
-];
+        \LibCoverage\LibCoverage::Begin(Db::class);
+        
+        $path_setting = \LibCoverage\LibCoverage::G()->getClassTestPath(Db::class);
+        $setting = include $path_setting . 'setting.php';
+        $options = $setting['database_list'][0];
+        
         $db=new Db;
         $db->init($options);
         $pdo=$db->PDO();
@@ -53,14 +53,14 @@ class DbTest extends \PHPUnit\Framework\TestCase
         $db->rowCount();
         
         ////[[[[
-        $db->setResultClass(DbTestUser::class);
         $sql="select * from Users limit 1";
-        $x=$db->fetchObjectAll($sql);
+        $x=$db->setObjectResultClass(DbTestUser::class)->fetchObjectAll($sql);
         $sql="select * from Users where username=:username";
         $x=$db->fetchObjectAll($sql,['username'=>'aa']);
 
-        $sql="select * from Users limit 1";
-        $x=$db->fetchObject($sql);
+
+        $sql="select * from 'TABLE' limit 1";
+        $x=$db->table('Users')->fetchObject($sql);
         $sql="select * from Users where username=:username";
         $x=$db->fetchObject($sql,['username'=>'aa']);
         
@@ -70,7 +70,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
         //code here
         $db->close($db);
         
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
         /*
   `username` varchar(32) COLLATE utf8_bin NOT NULL,
   `password` varchar(64) COLLATE utf8_bin NOT NULL,

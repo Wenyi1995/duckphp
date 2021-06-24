@@ -4,61 +4,53 @@
  * From this time, you never be alone~
  */
 
-namespace
-{
-    require_once(__DIR__.'/../../autoload.php');        // @DUCKPHP_HEADFILE
-    /*
-    $options = [
-        'override_class' => '\MySpace\System\App'
-    ];
-    \DuckPhp\DuckPhp::RunQuickly($options);
-*/
-}
 // 以下部分是核心工程师写。
-
 namespace MySpace\System
 {
+    //自动加载文件
+    require_once(__DIR__.'/../../autoload.php');        // @DUCKPHP_HEADFILE
+    
     use DuckPhp\DuckPhp;
     use DuckPhp\Ext\CallableView;
-    use DuckPhp\SingletonEx\SingletonEx;
+    use DuckPhp\SingletonEx\SingletonExTrait;
     use MySpace\View\Views;
 
     class App extends DuckPhp
     {
-        // @override
+        // @override 重写
         public $options = [
             'is_debug' => true,
                 // 开启调试模式
-            'skip_setting_file' => true,
-                // 本例特殊，跳过设置文件 这个选项防止没有上传设置文件到服务器
             'path_info_compact_enable' => true,
                 // 开启单一文件模式，服务器不配置也能运行
             'ext' => [
                 CallableView::class => true,
-                    // 默认的 View 不支持函数调用，我们开启自带扩展 CallableView 代替系统的 View
+                // 默认的 View 不支持函数调用，我们开启自带扩展 CallableView 代替系统的 View
             ],
             'callable_view_class' => Views::class,
-                    // 替换的 View 类。
+                // 替换的 View 类。
         ];
+        // @override 重写
         protected function onInit()
         {
             //初始化之后在这里运行。
             //var_dump($this->options);//查看总共多少选项
         }
+        // @override 重写
         protected function onRun()
         {
-            //运行期代码在这里
+            //运行期代码在这里，你可以在这里 static::session_start();
         }
     }
     //服务基类, 为了 Business::G() 可变单例。
     class BaseBusiness
     {
-        use SingletonEx;
+        use SingletonExTrait;
     }
 } // end namespace
 // 助手类
 
-namespace MySpace\System\Helper
+namespace MySpace\Helper
 {
     class ControllerHelper extends \DuckPhp\Helper\ControllerHelper
     {
@@ -74,16 +66,21 @@ namespace MySpace\System\Helper
     }
     class ViewHelper extends \DuckPhp\Helper\ViewHelper
     {
-        // 添加你想要的助手函数
+        // 添加你想要的助手函数。 ViewHelper 一般来说是不使用的
+    }
+    class AppHelper extends \DuckPhp\Helper\AdvanceHelper
+    {
+        // 添加你想要的助手函数。 AppHelper 一般来说是不使用的
     }
 } // end namespace
+
 //------------------------------
 // 以下部分由应用工程师编写，不再和 DuckPhp 的类有任何关系。
 
 namespace MySpace\Controller
 {
     use MySpace\Business\MyBusiness;  // 引用助手类
-    use MySpace\System\Helper\ControllerHelper as C;                  // 引用相关服务类
+    use MySpace\Helper\ControllerHelper as C; // 引用相关服务类
 
     class Main
     {
@@ -115,7 +112,7 @@ namespace MySpace\Business
 {
     use MySpace\Model\MyModel;
     use MySpace\System\BaseBusiness;
-    use MySpace\System\Helper\BusinessHelper as B;
+    use MySpace\Helper\BusinessHelper as B;
 
     class MyBusiness extends BaseBusiness
     {
@@ -129,7 +126,7 @@ namespace MySpace\Business
 
 namespace MySpace\Model
 {
-    use MySpace\Base\Helper\ModelHelper as M;
+    use MySpace\Helper\ModelHelper as M;
 
     class MyModel
     {
@@ -179,16 +176,15 @@ namespace MySpace\View {
         }
     }
 } // end namespace
+
 //------------------------------
 // 入口，放最后面避免自动加载问题
 
-
 namespace
 {
-    require_once(__DIR__.'/../../autoload.php');        // @DUCKPHP_HEADFILE
     $options = [
-        'override_class' => 'MySpace\System\App',
+        // 'override_class' => 'MySpace\System\App', 
+        // 你也可以在这里调整选项。覆盖类内选项
     ];
-    //\MySpace\System\App::RunQuickly($options);
-    \DuckPhp\DuckPhp::RunQuickly($options);
+    \MySpace\System\App::RunQuickly($options);
 }

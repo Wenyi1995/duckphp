@@ -10,11 +10,10 @@ use DuckPhp\Core\ComponentBase;
 use DuckPhp\Core\Configer;
 use DuckPhp\Core\ExceptionManager;
 use DuckPhp\Core\ExtendableStaticCallTrait;
-use DuckPhp\Core\Kernel;
+use DuckPhp\Core\KernelTrait;
 use DuckPhp\Core\Logger;
 use DuckPhp\Core\Route;
 use DuckPhp\Core\RuntimeState;
-use DuckPhp\Core\SuperGlobal;
 use DuckPhp\Core\SystemWrapperTrait;
 use DuckPhp\Core\View;
 
@@ -26,31 +25,38 @@ use DuckPhp\Core\View;
  */
 class App extends ComponentBase
 {
+    const VERSION = '1.2.12-dev';
+
     const HOOK_PREPEND_OUTTER = 'prepend-outter';
     const HOOK_PREPEND_INNER = 'prepend-inner';
     const HOOK_APPPEND_INNER = 'append-inner';
     const HOOK_APPPEND_OUTTER = 'append-outter';
     
-    use Kernel;
+    const DEFAULT_INJECTED_HELPER_MAP = '~\\Helper\\';
+    
+    use KernelTrait;
     use ExtendableStaticCallTrait;
     use SystemWrapperTrait;
     
     //inner trait
-    use Core_Handler;
     use Core_Helper;
     use Core_SystemWrapper;
     use Core_Glue;
     use Core_NotImplemented;
-    use Core_Component;
+    use Core_SuperGlobal;
     
-    // for helper
-    public $componentClassMap = [
-        'M' => 'Helper\ModelHelper',
-        'V' => 'Helper\ViewHelper',
-        'C' => 'Helper\ControllerHelper',
-        'B' => 'Helper\BusinessHelper',
-        'A' => 'Helper\AppHelper',
+    protected $core_options = [
+        'default_exception_do_log' => true,
+        'default_exception_self_display' => true,
+        'close_resource_at_output' => false,
+        'injected_helper_map' => '',
+        
+        //// error handler ////
+        'error_404' => null,          //'_sys/error-404',
+        'error_500' => null,          //'_sys/error-500',
+        'error_debug' => null,        //'_sys/error-debug',
     ];
+    
     // for trait
     protected $system_handlers = [
         'header' => null,
@@ -66,123 +72,46 @@ class App extends ComponentBase
 
     ];
     
-    // from kernel
-    protected $hanlder_for_exception_handler;
-    protected $hanlder_for_exception;
-    protected $hanlder_for_develop_exception;
-    protected $hanlder_for_404;
-    
     // for trait
     protected $extDynamicComponentClasses = [];
     protected $beforeShowHandlers = [];
     protected $pager;
     protected $cache;
     
-    protected $core_options = [
-        'default_exception_do_log' => true,
-        'default_exception_self_display' => true,
-        'close_resource_at_output' => false,
-    ];
     public function __construct()
     {
         parent::__construct();
         $this->options = array_replace_recursive(static::$options_default, $this->core_options, $this->options);
         unset($this->core_options); // not use again;
-        $this->hanlder_for_exception_handler = [static::class,'set_exception_handler'];
-        $this->hanlder_for_exception = [static::class,'OnDefaultException'];
-        $this->hanlder_for_develop_exception = [static::class,'OnDevErrorHandler'];
-        $this->hanlder_for_404 = [static::class,'On404'];
     }
-    public function extendComponents($method_map, $components = [])
+    public function version()
     {
-        static::AssignExtendStaticMethod($method_map);
-        self::AssignExtendStaticMethod($method_map);
-        
-        $a = explode('\\', get_class($this));
-        array_pop($a);
-        $namespace = ltrim(implode('\\', $a).'\\', '\\');  // __NAMESPACE__
-        
-        foreach ($components as $component) {
-            $class = $this->componentClassMap[strtoupper($component)] ?? null;
-            $full_class = ($class === null)?$component:$namespace.$class;
-            if (!class_exists($full_class)) {
-                continue;
-            }
-            $full_class::AssignExtendStaticMethod($method_map);
-        }
+        return static::VERSION;
     }
-    public function cloneHelpers($new_namespace, $componentClassMap = [])
-    {
-        if (empty($componentClassMap)) {
-            $componentClassMap = $this->componentClassMap;
-        }
-        //Get Namespace.
-        $a = explode('\\', get_class($this));
-        array_pop($a);
-        $namespace = ltrim(implode('\\', $a).'\\', '\\');
-        
-        foreach ($this->componentClassMap as $name => $class) {
-            $new_class = $componentClassMap[$name] ?? null;
-            if (!$new_class) {
-                continue;
-            }
-            $old_class = $namespace.$class;
-            $new_class = $new_namespace.$new_class;
-            if (!class_exists($new_class) || !class_exists($old_class)) {
-                continue;
-            }
-            $new_class::AssignExtendStaticMethod($old_class::GetExtendStaticMethodList());
-        }
-    }
-    
-    public function addBeforeShowHandler($handler)
-    {
-        $this->beforeShowHandlers[] = $handler;
-    }
-    public function removeBeforeShowHandler($handler)
-    {
-        $this->beforeShowHandlers = array_filter($this->beforeShowHandlers, function ($v) use ($handler) {
-            return $v != $handler;
-        });
-    }
-}
-trait Core_Handler
-{
-    //protected $beforeShowHandlers = [];
-    //protected $error_view_inited = false;
-    
-    public static function On404(): void
-    {
-        static::G()->_On404();
-    }
-    public static function OnDefaultException($ex): void
-    {
-        static::G()->_OnDefaultException($ex);
-    }
-    public static function OnDevErrorHandler($errno, $errstr, $errfile, $errline): void
-    {
-        static::G()->_OnDevErrorHandler($errno, $errstr, $errfile, $errline);
-    }
+    //////// override KernelTrait ////////
+    //@override
     public function _On404(): void
     {
         $error_view = $this->options['error_404'] ?? null;
         $error_view = $this->error_view_inited?$error_view:null;
         
-        static::header('', true, 404);
+        static::header('404 Not Found', true, 404);
         if (!is_string($error_view) && is_callable($error_view)) {
             ($error_view)();
             return;
         }
         //// no error_404 setting.
         if (!$error_view) {
-            echo "404 File Not Found\n<!--DuckPhp set options ['error_404'] to override me   -->\n";
+            $path_info = $_SERVER['PATH_INFO'] ?? '';
+            echo "404 File Not Found<!--PATH_INFO: ($path_info) DuckPhp set options ['error_404'] to override me. -->\n";
             return;
         }
         
-        $this->setViewHeadFoot(null, null);
-        $this->_Show([], $error_view);
+        View::G(new View())->init($this->options);
+        $this->onBeforeOutput();
+        View::G()->_Show([], $error_view);
     }
-    
+    //@override
     public function _OnDefaultException($ex): void
     {
         if ($this->options['default_exception_do_log']) {
@@ -199,7 +128,7 @@ trait Core_Handler
         $error_view = $this->options['error_500'] ?? null;
         $error_view = $this->error_view_inited?$error_view:null;
         
-        static::header('', true, 500);
+        static::header('Server Error', true, 500);
         $data = [];
         $data['is_debug'] = $this->options['is_debug'];
         $data['ex'] = $ex;
@@ -224,13 +153,17 @@ trait Core_Handler
                 echo "\n<pre>Debug On\n\n";
                 echo $data['trace'];
                 echo "\n</pre>\n";
+            } else {
+                echo "<!-- DuckPhp set options ['is_debug'] to show debug info>\n";
             }
             return;
         }
         
-        $this->setViewHeadFoot(null, null);
-        $this->_Show($data, $error_view);
+        View::G(new View())->init($this->options);
+        $this->onBeforeOutput();
+        View::G()->_Show($data, $error_view);
     }
+    //@override
     public function _OnDevErrorHandler($errno, $errstr, $errfile, $errline): void
     {
         if (!$this->_IsDebug()) {
@@ -267,7 +200,7 @@ trait Core_Handler
             extract($data);
             echo  <<<EOT
 <!--DuckPhp  set options ['error_debug']='_sys/error-debug.php' to override me -->
-<fieldset class="_DNMVC_DEBUG">
+<fieldset class="_DuckPhp_DEBUG">
     <legend>$error_desc($errno)</legend>
 <pre>
 {$error_shortfile}:{$errline}
@@ -280,12 +213,134 @@ EOT;
         }
         View::G()->_Display($error_view, $data);
     }
+    //////// features
+    protected function extendComponentClassMap($map, $namespace)
+    {
+        if (empty($map)) {
+            return [];
+        }
+        if (is_string($map)) {
+            // for helper
+            $map = [
+                'A' => $map . 'AdvanceHelper',
+                'B' => $map . 'BusinessHelper',
+                'C' => $map . 'ControllerHelper',
+                'M' => $map . 'ModelHelper',
+                'V' => $map . 'ViewHelper',
+            ];
+        }
+        return $map;
+    }
+    protected function fixNamespace($class, $namespace)
+    {
+        $class = str_replace('~', $namespace, $class);
+        $class = str_replace("\\\\", "\\", $class);
+        return $class;
+    }
+    public function extendComponents($method_map, $components = [])
+    {
+        static::AssignExtendStaticMethod($method_map);
+        self::AssignExtendStaticMethod($method_map);
+        
+        $this->options['injected_helper_map'] = $this->extendComponentClassMap($this->options['injected_helper_map'], $this->options['namespace']);
+        foreach ($components as $component) {
+            $class = $this->options['injected_helper_map'][strtoupper($component)] ?? null;
+            $class = ($class === null) ? $component : $class;
+            $class = $this->fixNamespace($class, $this->options['namespace']);
+            
+            if (!class_exists($class)) {
+                continue;
+            }
+            $class::AssignExtendStaticMethod($method_map);
+        }
+    }
+    public function cloneHelpers($new_namespace, $new_helper_map = [])
+    {
+        if (empty($new_helper_map)) {
+            return;
+        }
+        $helperMap = $this->extendComponentClassMap($this->options['injected_helper_map'], $this->options['namespace']);
+
+        foreach ($helperMap as $name => $old_class) {
+            $new_class = $new_helper_map[$name] ?? null;
+            if (!$new_class) {
+                continue;
+            }
+            $old_class = $this->fixNamespace($old_class, $this->options['namespace']);
+            $new_class = $this->fixNamespace($new_class, $new_namespace);
+            if (!class_exists($old_class) || !class_exists($new_class)) {
+                continue;
+            }
+            $new_class::AssignExtendStaticMethod($old_class::GetExtendStaticMethodList());
+        }
+    }
+    
+    public function addBeforeShowHandler($handler)
+    {
+        $this->beforeShowHandlers[] = $handler;
+    }
+    public function removeBeforeShowHandler($handler)
+    {
+        $this->beforeShowHandlers = array_filter($this->beforeShowHandlers, function ($v) use ($handler) {
+            return $v != $handler;
+        });
+    }
+    
+    public function addDynamicComponentClass($class)
+    {
+        $this->extDynamicComponentClasses[] = $class;
+    }    //////// for DuckPhp\HttpServer\AppInterface
+
+    public function skip404Handler()
+    {
+        $this->options['skip_404_handler'] = true;
+    }
+    protected function onBeforeOutput()
+    {
+        //if (!$this->options['close_resource_at_output']) {
+        //    return;
+        //}
+        foreach ($this->beforeShowHandlers as $v) {
+            ($v)();
+        }
+    }
+    public static function Show($data = [], $view = '')
+    {
+        return static::G()->_Show($data, $view);
+    }
+    public function _Show($data = [], $view = '')
+    {
+        $this->onBeforeOutput();
+        $view = $view === '' ? Route::G()->getRouteCallingPath() : $view;
+        return View::G()->_Show($data, $view);
+    }
+    public static function IsAjax()
+    {
+        return static::G()->_IsAjax();
+    }
+    public function _IsAjax()
+    {
+        $ref = $this->_SERVER('HTTP_X_REQUESTED_WITH');
+        return $ref && 'xmlhttprequest' == strtolower($ref) ? true : false;
+    }
+    public static function CheckRunningController($self, $static)
+    {
+        return static::G()->_CheckRunningController($self, $static);
+    }
+    public function _CheckRunningController($self, $static)
+    {
+        if ($self === $static) {
+            if ($self === Route::G()->getRouteCallingClass()) {
+                static::Exit404();
+            }
+            return true;
+        }
+        return false;
+    }
 }
 
 trait Core_SystemWrapper
 {
-    // use SystemWrapper;
-
     public static function header($output, bool $replace = true, int $http_response_code = 0)
     {
         return static::G()->_header($output, $replace, $http_response_code);
@@ -305,6 +360,22 @@ trait Core_SystemWrapper
     public static function register_shutdown_function(callable $callback, ...$args)
     {
         return static::G()->_register_shutdown_function($callback, ...$args);
+    }
+    public static function session_start(array $options = [])
+    {
+        return static::G()->_session_start($options);
+    }
+    public static function session_id($session_id = null)
+    {
+        return static::G()->_session_id($session_id);
+    }
+    public static function session_destroy()
+    {
+        return static::G()->_session_destroy();
+    }
+    public static function session_set_save_handler(\SessionHandlerInterface $handler)
+    {
+        return static::G()->_session_set_save_handler($handler);
     }
     public function _header($output, bool $replace = true, int $http_response_code = 0)
     {
@@ -356,6 +427,43 @@ trait Core_SystemWrapper
         }
         register_shutdown_function($callback, ...$args);
     }
+    ////[[[[
+    public function _session_start(array $options = [])
+    {
+        if ($this->system_wrapper_call_check(__FUNCTION__)) {
+            $this->system_wrapper_call(__FUNCTION__, func_get_args());
+            return;
+        }
+        return @session_start($options);
+    }
+    public function _session_id($session_id = null)
+    {
+        if ($this->system_wrapper_call_check(__FUNCTION__)) {
+            $this->system_wrapper_call(__FUNCTION__, func_get_args());
+            return;
+        }
+        if (!isset($session_id)) {
+            return session_id();
+        }
+        return session_id($session_id);
+    }
+    public function _session_destroy()
+    {
+        if ($this->system_wrapper_call_check(__FUNCTION__)) {
+            $this->system_wrapper_call(__FUNCTION__, func_get_args());
+            return;
+        }
+        return session_destroy();
+    }
+    public function _session_set_save_handler(\SessionHandlerInterface $handler)
+    {
+        if ($this->system_wrapper_call_check(__FUNCTION__)) {
+            $this->system_wrapper_call(__FUNCTION__, func_get_args());
+            return;
+        }
+        return session_set_save_handler($handler);
+    }
+    ////]]]]
 }
 trait Core_Helper
 {
@@ -387,13 +495,8 @@ trait Core_Helper
     ////
     public function _ExitJson($ret, $exit = true)
     {
-        static::header('Content-Type:text/json');
-        
-        $flag = JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK;
-        if ($this->_IsDebug()) {
-            $flag = $flag | JSON_PRETTY_PRINT;
-        }
-        echo json_encode($ret, $flag);
+        $this->_header('Content-Type:application/json; charset=utf-8');
+        echo $this->_Json($ret);
         if ($exit) {
             static::exit();
         }
@@ -443,10 +546,6 @@ trait Core_Helper
         //you can override this;
         return $this->options['is_debug'];
     }
-    public static function Show($data = [], $view = '')
-    {
-        return static::G()->_Show($data, $view);
-    }
     public static function H($str)
     {
         return static::G()->_H($str);
@@ -457,11 +556,15 @@ trait Core_Helper
     }
     public static function Hl($str, $args = [])
     {
-        return static::H(static::L($str, $args));
+        return static::G()->_Hl($str, $args);
+    }
+    public static function Json($data)
+    {
+        return static::G()->_Json($data);
     }
     public function _L($str, $args = [])
     {
-        //TODO locale and do
+        //Override for locale and so do
         if (empty($args)) {
             return $str;
         }
@@ -472,22 +575,20 @@ trait Core_Helper
         $ret = str_replace(array_keys($a), array_values($a), $str);
         return $ret;
     }
-    ////
-    protected function onBeforeOutput()
+    public function _Hl($str, $args)
     {
-        //if (!$this->options['close_resource_at_output']) {
-        //    return;
-        //}
-        foreach ($this->beforeShowHandlers as $v) {
-            ($v)();
+        $t = $this->_L($str, $args);
+        return $this->_H($t);
+    }
+    public function _Json($data)
+    {
+        $flag = JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK;
+        if ($this->_IsDebug()) {
+            $flag = $flag | JSON_PRETTY_PRINT;
         }
+        return json_encode($data, $flag);
     }
-    public function _Show($data = [], $view = '')
-    {
-        $this->onBeforeOutput();
-        $view = $view === '' ? Route::G()->getRouteCallingPath() : $view;
-        return View::G()->_Show($data, $view);
-    }
+    ////
     public function _H(&$str)
     {
         if (is_string($str)) {
@@ -503,15 +604,15 @@ trait Core_Helper
         return $str;
     }
     // ViewHelper
-    public static function trace_dump()
+    public static function TraceDump()
     {
-        return static::G()->_trace_dump();
+        return static::G()->_TraceDump();
     }
     public static function var_dump(...$args)
     {
         return static::G()->_var_dump(...$args);
     }
-    public function _trace_dump()
+    public function _TraceDump()
     {
         if (!$this->options['is_debug']) {
             return;
@@ -529,11 +630,11 @@ trait Core_Helper
         var_dump(...$args);
         echo "</pre>\n";
     }
-    public static function XCall($callback, ...$args)
+    public static function XpCall($callback, ...$args)
     {
-        return static::G()->_XCall($callback, ...$args);
+        return static::G()->_XpCall($callback, ...$args);
     }
-    public function _XCall($callback, ...$args)
+    public function _XpCall($callback, ...$args)
     {
         try {
             return ($callback)(...$args);
@@ -541,37 +642,15 @@ trait Core_Helper
             return $ex;
         }
     }
-    public static function Domain()
+    public static function CheckException($exception_class, $message, $code = 0)
     {
-        return static::G()->_Domain();
+        return static::G()->_CheckException($exception_class, $message, $code);
     }
-    public function _Domain()
+    public function _CheckException($exception_class, $flag, $message, $code = 0)
     {
-        $scheme = SuperGlobal::G()->_SERVER['REQUEST_SCHEME'] ?? '';
-        $host = SuperGlobal::G()->_SERVER['HTTP_HOST'] ?? (SuperGlobal::G()->SERVER['SERVER_NAME'] ?? (SuperGlobal::G()->_SERVER['SERVER_ADDR'] ?? ''));
-        $host = $host ?? '';
-        
-        $port = SuperGlobal::G()->_SERVER['SERVER_PORT'] ?? '';
-        $port = ($port == 443 && $scheme == 'https')?'':$port;
-        $port = ($port == 80 && $scheme == 'http')?'':$port;
-        $port = ($port)?(':'.$port):'';
-
-        $host = (strpos($host, ':'))? strstr($host, ':', true) : $host;
-        
-        $ret = $scheme.':/'.'/'.$host.$port;
-        return $ret;
-    }
-    public static function ThrowOn($flag, $message, $code = 0, $exception_class = null)
-    {
-        return static::G()->_ThrowOn($flag, $message, $code, $exception_class);
-    }
-    public function _ThrowOn($flag, $message, $code = 0, $exception_class = null)
-    {
-        if (!$flag) {
-            return;
+        if ($flag) {
+            throw new $exception_class($message, $code);
         }
-        $exception_class = $exception_class?:\Exception::class;
-        throw new $exception_class($message, $code);
     }
     ////
     public static function SqlForPager($sql, $pageNo, $pageSize = 10)
@@ -602,11 +681,11 @@ trait Core_Helper
     {
         return Logger::G($object);
     }
-    public static function debug_log($message, array $context = array())
+    public static function DebugLog($message, array $context = array())
     {
-        return static::G()->_debug_log($message, $context);
+        return static::G()->_DebugLog($message, $context);
     }
-    public function _debug_log($message, array $context = array())
+    public function _DebugLog($message, array $context = array())
     {
         if ($this->options['is_debug']) {
             return Logger::G()->debug($message, $context);
@@ -685,27 +764,28 @@ trait Core_NotImplemented
     }
     public function _Db($tag)
     {
-        throw new \ErrorException("DNMVCS No Impelement " . __FUNCTION__);
+        throw new \ErrorException("DuckPhp No Impelement " . __FUNCTION__);
     }
     public function _DbForRead()
     {
-        throw new \ErrorException("DNMVCS No Impelement " . __FUNCTION__);
+        throw new \ErrorException("DuckPhp No Impelement " . __FUNCTION__);
+    }
+
+    public function _DbForWrite()
+    {
+        throw new \ErrorException("DuckPhp No Impelement " . __FUNCTION__);
     }
     public function _Event()
     {
-        throw new \ErrorException("DNMVCS No Impelement " . __FUNCTION__);
-    }
-    public function _DbForWrite()
-    {
-        throw new \ErrorException("DNMVCS No Impelement " . __FUNCTION__);
+        throw new \ErrorException("DuckPhp No Impelement " . __FUNCTION__);
     }
     public function _FireEvent($event, ...$args)
     {
-        throw new \ErrorException("DNMVCS No Impelement " . __FUNCTION__);
+        return; // do nothing. for override
     }
     public function _OnEvent($event, $callback)
     {
-        throw new \ErrorException("DNMVCS No Impelement " . __FUNCTION__);
+        return; // do nothing. for override
     }
 }
 
@@ -727,7 +807,11 @@ trait Core_Glue
     {
         return Route::G()->_Url($url);
     }
-    public static function Parameter($key, $default = null)
+    public static function Domain($use_scheme = false)
+    {
+        return Route::G()->_Domain($use_scheme);
+    }
+    public static function Parameter($key = null, $default = null)
     {
         return Route::G()->_Parameter($key, $default);
     }
@@ -736,6 +820,10 @@ trait Core_Glue
     public static function Display($view, $data = null)
     {
         return View::G()->_Display($view, $data);
+    }
+    public static function Render($view, $data = null)
+    {
+        return View::G()->_Render($view, $data);
     }
     public static function getViewData()
     {
@@ -761,6 +849,11 @@ trait Core_Glue
     {
         return AutoLoader::G()->assignPathNamespace($path, $namespace);
     }
+    //
+    public static function runAutoLoader()
+    {
+        return AutoLoader::G()->runAutoLoader();
+    }
     // route
     public static function Route($replacement_object = null)
     {
@@ -774,13 +867,9 @@ trait Core_Glue
     {
         return Route::G()->getPathInfo();
     }
-    public static function getParameters()
+    public static function addRouteHook($callback, $position, $once = true)
     {
-        return Route::G()->getParameters();
-    }
-    public static function addRouteHook($hook, $position, $once = true)
-    {
-        return Route::G()->addRouteHook($hook, $position, $once);
+        return Route::G()->addRouteHook($callback, $position, $once);
     }
     public static function add404RouteHook($callback)
     {
@@ -789,14 +878,6 @@ trait Core_Glue
     public static function getRouteCallingMethod()
     {
         return Route::G()->getRouteCallingMethod();
-    }
-    public static function setRouteCallingMethod(string $method)
-    {
-        return Route::G()->setRouteCallingMethod($method);
-    }
-    public static function setUrlHandler($callback)
-    {
-        return Route::G()->setUrlHandler($callback);
     }
     public static function dumpAllRouteHooksAsString()
     {
@@ -828,121 +909,122 @@ trait Core_Glue
     {
         return ExceptionManager::G()->_CallException($ex);
     }
-    //super global
-    public static function SuperGlobal($replacement_object = null)
-    {
-        return SuperGlobal::G($replacement_object);
-    }
-    public static function &GLOBALS($k, $v = null)
-    {
-        return SuperGlobal::G()->_GLOBALS($k, $v);
-    }
-    public static function &STATICS($k, $v = null, $_level = 1)
-    {
-        return SuperGlobal::G()->_STATICS($k, $v, $_level);
-    }
-    public static function &CLASS_STATICS($class_name, $var_name)
-    {
-        return SuperGlobal::G()->_CLASS_STATICS($class_name, $var_name);
-    }
-    ////super global
-    public static function session_start(array $options = [])
-    {
-        return SuperGlobal::G()->session_start($options);
-    }
-    public static function session_id($session_id = null)
-    {
-        return SuperGlobal::G()->session_id($session_id);
-    }
-    public static function session_destroy()
-    {
-        return SuperGlobal::G()->session_destroy();
-    }
-    public static function session_set_save_handler(\SessionHandlerInterface $handler)
-    {
-        return SuperGlobal::G()->session_set_save_handler($handler);
-    }
-    
+}
+trait Core_SuperGlobal
+{
     public static function GET($key = null, $default = null)
     {
-        if (isset($key)) {
-            return SuperGlobal::G()->_GET[$key] ?? $default;
-        } else {
-            return SuperGlobal::G()->_GET ?? $default;
-        }
+        return static::G()->_Get($key, $default);
     }
     public static function POST($key = null, $default = null)
     {
-        if (isset($key)) {
-            return SuperGlobal::G()->_POST[$key] ?? $default;
-        } else {
-            return SuperGlobal::G()->_POST ?? $default;
-        }
+        return static::G()->_POST($key, $default);
     }
     public static function REQUEST($key = null, $default = null)
     {
-        if (isset($key)) {
-            return SuperGlobal::G()->_REQUEST[$key] ?? $default;
-        } else {
-            return SuperGlobal::G()->_REQUEST ?? $default;
-        }
+        return static::G()->_REQUEST($key, $default);
     }
     public static function COOKIE($key = null, $default = null)
     {
-        if (isset($key)) {
-            return SuperGlobal::G()->_COOKIE[$key] ?? $default;
-        } else {
-            return SuperGlobal::G()->_COOKIE ?? $default;
-        }
+        return static::G()->_COOKIE($key, $default);
     }
     public static function SERVER($key = null, $default = null)
     {
+        return static::G()->_SERVER($key, $default);
+    }
+    public static function SESSION($key = null, $default = null)
+    {
+        return static::G()->_SESSION($key, $default);
+    }
+    public static function FILES($key = null, $default = null)
+    {
+        return static::G()->_FILES($key, $default);
+    }
+    public static function SessionSet($key, $value)
+    {
+        return static::G()->_SessionSet($key, $value);
+    }
+    public static function SessionUnset($key)
+    {
+        return static::G()->_SessionUnset($key);
+    }
+    public static function SessionGet($key, $default = null)
+    {
+        return static::G()->_SessionGet($key, $default);
+    }
+    public static function CookieSet($key, $value, $expire = 0)
+    {
+        return static::G()->_CookieSet($key, $value, $expire);
+    }
+    public static function CookieGet($key, $default = null)
+    {
+        return static::G()->_CookieGet($key, $default);
+    }
+
+    private function getSuperGlobalData($superglobal_key, $key, $default)
+    {
+        $data = defined('__SUPERGLOBAL_CONTEXT') ? (__SUPERGLOBAL_CONTEXT)()->$superglobal_key : ($GLOBALS[$superglobal_key] ?? []);
+        
         if (isset($key)) {
-            return SuperGlobal::G()->_SERVER[$key] ?? $default;
+            return $data[$key] ?? $default;
         } else {
-            return SuperGlobal::G()->_SERVER ?? $default;
+            return $data ?? $default;
         }
     }
-}
-trait Core_Component
-{
-    //protected $componentClassMap;
-    //protected $extDynamicComponentClasses = [];
-    
-    public function getStaticComponentClasses()
+    public function _GET($key = null, $default = null)
     {
-        $ret = [
-            self::class,
-            AutoLoader::class,
-            ExceptionManager::class,
-            Configer::class,
-            Route::class,
-            Logger::class,
-            View::class,
-        ];
-        if (!in_array(static::class, $ret)) {
-            $ret[] = static::class;
+        return $this->getSuperGlobalData('_GET', $key, $default);
+    }
+    public function _POST($key = null, $default = null)
+    {
+        return $this->getSuperGlobalData('_POST', $key, $default);
+    }
+    public function _REQUEST($key = null, $default = null)
+    {
+        return $this->getSuperGlobalData('_REQUEST', $key, $default);
+    }
+    public function _COOKIE($key = null, $default = null)
+    {
+        return $this->getSuperGlobalData('_COOKIE', $key, $default);
+    }
+    public function _SERVER($key = null, $default = null)
+    {
+        return $this->getSuperGlobalData('_SERVER', $key, $default);
+    }
+    public function _SESSION($key = null, $default = null)
+    {
+        return $this->getSuperGlobalData('_SESSION', $key, $default);
+    }
+    public function _FILES($key = null, $default = null)
+    {
+        return $this->getSuperGlobalData('_FILES', $key, $default);
+    }
+    public function _SessionSet($key, $value)
+    {
+        if (defined('__SUPERGLOBAL_CONTEXT')) {
+            (__SUPERGLOBAL_CONTEXT)()->_SESSION[$key] = $value;
+        } else {
+            $_SESSION[$key] = $value;
         }
-        return $ret;
     }
-    public function getDynamicComponentClasses()
+    public function _SessionUnset($key)
     {
-        $ret = [
-            RuntimeState::class,
-            SuperGlobal::class,
-            View::class,
-        ];
-        $ret = array_merge($ret, $this->extDynamicComponentClasses);
-        return $ret;
+        if (defined('__SUPERGLOBAL_CONTEXT')) {
+            unset((__SUPERGLOBAL_CONTEXT)()->_SESSION[$key]);
+        }
+        unset($_SESSION[$key]);
     }
-    public function addDynamicComponentClass($class)
+    public function _CookieSet($key, $value, $expire)
     {
-        $this->extDynamicComponentClasses[] = $class;
+        $this->_setcookie($key, $value, $expire ? $expire + time():0);
     }
-    public function removeDynamicComponentClass($class)
+    public function _SessionGet($key, $default)
     {
-        array_filter($this->extDynamicComponentClasses, function ($v) use ($class) {
-            return $v !== $class?true:false;
-        });
+        return $this->getSuperGlobalData('_SESSION', $key, $default);
+    }
+
+    public function _CookieGet($key, $default)
+    {
+        return $this->getSuperGlobalData('_COOKIE', $key, $default);
     }
 }

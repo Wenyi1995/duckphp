@@ -6,17 +6,21 @@ use DuckPhp\DuckPhp;
 use DuckPhp\Core\Configer;
 use DuckPhp\Core\View;
 use DuckPhp\Core\Route;
-use DuckPhp\SingletonEx\SingletonEx;
-use DuckPhp\Ext\Pager;
+use DuckPhp\SingletonEx\SingletonExTrait;
+use DuckPhp\Component\Pager;
+use DuckPhp\Ext\SuperGlobalContext;
 
 class AppTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(App::class);
-    
-        $path_app=\MyCodeCoverage::GetClassTestPath(App::class);
-        $path_config=\MyCodeCoverage::GetClassTestPath(Configer::class);
+        \LibCoverage\LibCoverage::Begin(App::class);
+        
+        $_SESSION=[];
+        
+        
+        $path_app=\LibCoverage\LibCoverage::G()->getClassTestPath(App::class);
+        $path_config=\LibCoverage\LibCoverage::G()->getClassTestPath(Configer::class);
         
         $options=[
             'path' => $path_app,
@@ -43,10 +47,17 @@ class AppTest extends \PHPUnit\Framework\TestCase
             AppTestObjectA::class=>true,
             AppTestObjectB::class=>['aa'=>'22'],
         ];
+
         App::RunQuickly($options,function(){
+        App::SessionSet('zz','abc');
+        App::SessionGet('zz');
+        
+                        SuperGlobalContext::DefineSuperGlobalContext();
+        App::SessionUnset('zz',);
+
             App::G()->addBeforeShowHandler(function(){ echo "beforeShowHandlers";});
-                        App::G()->addBeforeShowHandler("testsssssssssss");
-                        App::G()->removeBeforeShowHandler("testsssssssssss");
+            App::G()->addBeforeShowHandler("testsssssssssss");
+            App::G()->removeBeforeShowHandler("testsssssssssss");
 
             $value = $cache[$key]; // trigger notice
             App::G()->options['error_debug']='_sys/error-debug';
@@ -61,19 +72,30 @@ class AppTest extends \PHPUnit\Framework\TestCase
 
         });
         
-        //App::SuperGlobal()->_SERVER['PATH_INFO']='/NOOOOOOOOOOOOOOO';
-        Route::G()->bind('/NOOOOOOOOOOOOOOO');  // 这两句居然有区别 ,TODO ，分析之
+        App::Route()->bind('/NOOOOOOOOOOOOOOO');  // 这两句居然有区别 ,TODO ，分析之
         
         App::G()->options['error_404']=function(){
             echo "noooo 404  ooooooooo\n";
-            
         };
         
         App::G()->run();
 echo "-------------------------------------\n";
-        Route::G()->bind('/exception');
+        App::Route()->bind('/exception');
         App::G()->run();
-
+        
+        App::G()->options['error_404']=function(){
+            echo "zzzzzo 404  zzzzzzzzzzzz\n";
+        };
+        App::Route()->bind('/Base/index');
+        try{
+                App::G()->system_wrapper_replace(['exit'=>function($code){
+            var_dump(DATE(DATE_ATOM));
+        }]);
+        
+        App::G()->run();
+        }catch(\Throwable $ex){
+            echo "failed".$ex;
+        }
         try{
             App::G()->options['skip_exception_check']=true;
             Route::G()->bind('/exception');
@@ -83,7 +105,7 @@ echo "-------------------------------------\n";
             echo $ex->getMessage();
         }
         App::G()->options['skip_exception_check']=false;
-//\MyCodeCoverage::G()->end(App::class);
+//\LibCoverage\LibCoverage::End(App::class);
 //$this->assertTrue(true);
 //return;
         //Route::G()->bind('')
@@ -98,7 +120,7 @@ echo "-------------------------------------\n";
         }
         
         
-        App::G()->clear();
+        //App::G()->clear();
         ///////////////////////////
         $options=[
             // 'no this path' => $path_app,
@@ -165,19 +187,26 @@ App::PageHtml(123);
         App::REQUEST();
         App::COOKIE();
         App::SERVER();
+        App::SESSION();
+        App::FILES();
+        
         App::Route();
         
-        
+                App::SessionSet('x',DATE('Y,M,d'));
+                SuperGlobalContext::DefineSuperGlobalContext();
+                                App::SessionSet('x',DATE('Y,M,d'));
 
+            App::CookieSet('x',DATE('Y,M,d'));
+            App::CookieGet('x');
         
         App::dumpAllRouteHooksAsString();
         try{
-            App::ThrowOn(false,"HH");
-            App::ThrowOn(true,"HH");
+            App::CheckException(\Exception::class, false,"HH");
+            App::CheckException(\Exception::class, true,"HH");
         }catch(\Exception $ex){
         }
-        App::XCall(function(){return "abc";});
-        App::XCall(function(){ throw new \Exception('ex'); });
+        App::XpCall(function(){return "abc";});
+        App::XpCall(function(){ throw new \Exception('ex'); });
         App::Cache(new \stdClass);
         try{
             App::OnEvent("test",null);
@@ -191,8 +220,12 @@ App::PageHtml(123);
         $old_class = AppTestObjectA::class;
         $new_class = AppTestObjectB::class;
         App::replaceControllerSingelton($old_class, $new_class);
+        App::G()->version();
         
-        \MyCodeCoverage::G()->end();
+        App::IsAjax();
+        
+        App::G()->runAutoLoader();
+        \LibCoverage\LibCoverage::End();
     return;
 
     }
@@ -210,12 +243,27 @@ App::PageHtml(123);
         });
         App::register_shutdown_function(function(){echo "shutdowning";});
         
+        App::session_start([]);
+        try{
+        App::session_id(md5('123456'));
+        }catch(\ErrorException $ex){
+        }
+        App::session_id(null);
+        App::session_destroy();
+        $handler=new FakeSessionHandler();
+        App::session_set_save_handler( $handler);
+        
+        
         App::G()->system_wrapper_replace([
             'header' =>function(){ echo "change!\n";},
             'setcookie' =>function(){ echo "change!\n";},
             'exit' =>function(){ echo "change!\n";},
             'set_exception_handler' =>function(){ echo "change!\n";},
             'register_shutdown_function' =>function(){ echo "change!\n";},
+            'session_start' => function(){ echo "change!\n";},
+            'session_id' =>  function(){ echo "change!\n";},
+            'session_destroy' => function(){ echo "change!\n";},
+            'session_set_save_handler' => function(){ echo "change!\n";},
         ]);
         
         App::header($output,$replace = true, $http_response_code=0);
@@ -226,6 +274,16 @@ App::PageHtml(123);
         });
         App::register_shutdown_function(function(){echo "shutdowning";});
         
+        
+        App::session_start([]);
+        App::session_id(null);
+        App::session_id(md5('123456'));
+        App::session_destroy();
+        $handler=new FakeSessionHandler();
+        App::session_set_save_handler( $handler);
+        
+        
+        
     }
     public function doException()
     {
@@ -234,6 +292,11 @@ App::PageHtml(123);
         App::CallException(new \Exception("333333",-1));
         App::G()->options['error_500']=null;
         App::CallException(new \Exception("EXxxxxxxxxxxxxxx",-1));
+        
+                App::G()->options['error_500']=null;
+                App::G()->options['is_debug']=false;
+        App::CallException(new \Exception("EXxxxxxxxxxxxxxx",-1));
+        App::G()->options['is_debug']=true;
         
         App::G()->options['error_500']=function($ex){ echo $ex;};
         App::CallException(new \Exception("22222222222222",-1));
@@ -257,7 +320,8 @@ App::PageHtml(123);
         echo App::H(123);
         echo App::L("a{b}c",[]);
         echo App::L("a{b}c",['b'=>'123']);
-        echo App::HL("&<{b}>",['b'=>'123']);
+        echo App::Hl("&<{b}>",['b'=>'123']);
+        echo App::Json("&<{b}>",['b'=>'123']);
         echo App::Domain();
         App::IsRunning();
         App::IsDebug();
@@ -272,13 +336,13 @@ App::PageHtml(123);
         $flag=App::G()->options['is_debug'];
         
         App::G()->options['is_debug']=true;
-        App::trace_dump();
         App::var_dump("OK");
-        App::debug_log("OK");
+        App::TraceDump();
+        App::DebugLog("OK");
         App::G()->options['is_debug']=false;
-        App::trace_dump();
+        App::TraceDump();
         App::var_dump("OK");
-        App::debug_log("OK");
+        App::DebugLog("OK");
 
         App::G()->options['is_debug']=$flag;
         
@@ -306,15 +370,12 @@ App::PageHtml(123);
         $method="method";
         App::URL($url=null);
         
-        App::getParameters();
         App::Parameter('x','y');
         App::getRouteCallingMethod();
-        App::setRouteCallingMethod($method);
-        App::setURLHandler(function($url){return $url;});
         App::URL('abc');
         //*/
         //*
-        $path_view=\MyCodeCoverage::GetClassTestPath(App::class).'view/';
+        $path_view=\LibCoverage\LibCoverage::G()->getClassTestPath(App::class).'view/';
 
         $options=[
             'path_view'=>$path_view,
@@ -324,6 +385,7 @@ App::PageHtml(123);
         App::G()->addBeforeShowHandler(function(){ echo "addBeforeShowHandler";});
         App::G()->options['skip_view_notice_error']=true;
         App::Show(['A'=>'b'],"view");
+        App::Render("view",['A'=>'b']);
         App::Display("view",['A'=>'b']);
         App::getViewData();
         
@@ -356,16 +418,9 @@ App::PageHtml(123);
         $k="k";$v="v";
         $class_name=AppTestObject::class;
         $var_name="x";
-        App::SuperGlobal();
-        App::GLOBALS($k, $v=null);
-        App::STATICS($k, $v=null);
-        App::CLASS_STATICS($class_name, $var_name);        
+
         
-        App::session_start($options=[]);
-        App::session_id(null);
-        App::session_destroy();
-        $handler=new FakeSessionHandler();
-        App::session_set_save_handler( $handler);
+
         
         App::assignPathNamespace("NoPath","NoName");
         App::addRouteHook(function(){},'append-outter',true);
@@ -384,8 +439,8 @@ App::PageHtml(123);
         
         
         echo "-----------------------\n";
-        $path_app=\MyCodeCoverage::GetClassTestPath(App::class);
-        $path_config=\MyCodeCoverage::GetClassTestPath(Configer::class);
+        $path_app=\LibCoverage\LibCoverage::G()->getClassTestPath(App::class);
+        $path_config=\LibCoverage\LibCoverage::G()->getClassTestPath(Configer::class);
         $options=[
             'path' => $path_app,
             'path_config' => $path_config,
@@ -432,12 +487,12 @@ App::PageHtml(123);
     }
     protected function do_Core_Component()
     {
-
-        App::G()->getStaticComponentClasses();
+        App::G()->options['ext']['Xclass']=true;
+        //App::G()->getStaticComponentClasses();
         App::G()->getDynamicComponentClasses();
         $class="NoExits";
         App::G()->addDynamicComponentClass($class);
-        App::G()->removeDynamicComponentClass($class);
+        App::G()->skip404Handler();
         
         
         $new_namespace=__NAMESPACE__;
@@ -452,8 +507,14 @@ App::PageHtml(123);
         App::G()->init($options);
 
         App::G()->extendComponents(['Foo'=>[AppTest::class,'Foo']],['V',"ZZZ"]);
+        
+        App::G()->options['injected_helper_map']='~\Helper\\';
+        App::G()->extendComponents(['Foo'=>[AppTest::class,'Foo']],['V',"ZZZ"]);
+
+
+        //cloneHelpers
         App::G()->cloneHelpers($new_namespace);
-        App::G()->cloneHelpers($new_namespace, ['M'=>'no_exits_class']);
+        App::G()->cloneHelpers($new_namespace.'\\Helper\\', ['M'=>'no_exits_class','C'=>'~\\ControllerHelper']);
     }
     public static function Foo()
     {
@@ -502,7 +563,7 @@ class AppTestApp2 extends App
 class AppTestObject
 {
     static $x;
-    use SingletonEx;
+    use SingletonExTrait;
 
     public static function Foo()
     {
@@ -512,7 +573,7 @@ class AppTestObject
 class AppTestObjectA
 {
     static $x;
-    use SingletonEx;
+    use SingletonExTrait;
     public static function Foo()
     {
         return "OK";
@@ -524,7 +585,7 @@ class AppTestObjectA
 class AppTestObjectB
 {
     static $x;
-    use SingletonEx;
+    use SingletonExTrait;
     public static function Foo()
     {
         return "OK";
@@ -560,20 +621,34 @@ class FakeSessionHandler implements \SessionHandlerInterface
 
 }
 namespace tests\DuckPhp\Core\Helper{
+    use \DuckPhp\Core\ExtendableStaticCallTrait as a;
+
 class ControllerHelper
 {
-    use \DuckPhp\Helper\HelperTrait;
+    use a;
 }
 class ViewHelper
 {
-    use \DuckPhp\Helper\HelperTrait;
+    use a;
 }
 }
 namespace tests\DuckPhp\Core\Controller{
-class AppMain
+class Base
+{
+    public function __construct()
+    {
+        \DuckPhp\Core\App::CheckRunningController(self::class, static::class);
+    }
+    public function index()
+    {
+        echo "OK";
+    }
+}
+class AppMain extends Base
 {
     public function index()
     {
+        new Base();
         var_dump("OK");
     }
     public function exception()

@@ -2,13 +2,183 @@
 require_once(__DIR__.'/../autoload.php');
 // 自动化文档脚本
 
-GenOptionsGenerator::G()->init([])->run();
+DocFixer::G()->init([])->run();
+OptionsGenerator::G()->init([])->run();
+
 var_dump(DATE(DATE_ATOM));
 
 return;
-
-class GenOptionsGenerator
+class DocFixer
 {
+    public static function G($object=null)
+    {
+        static $_instance;
+        $_instance=$object?:($_instance??new static);
+        return $_instance;
+    }
+    public function init(array $options, ?object $context = null)
+    {
+        return $this;
+    }
+    protected $path_base='';
+    public $option_descs=[];
+    public function __construct()
+    {
+        $ref=new ReflectionClass(\DuckPhp\DuckPhp::class);
+        $this->path_base=realpath(dirname($ref->getFileName()) . '/../').'/';
+    }
+
+    public function run()
+    {
+        $files=$this->getSrcFiles($this->path_base.'src/');
+        foreach($files as $file){
+            $this->doDoc($file);
+        }
+        $this->doOptionsDescs($files);
+        return true;
+    }
+    public function doOptionsDescs($files)
+    {
+        $all =[];
+        foreach($files as $file){
+            $data=$this->doDoc2($file);
+            $all=array_merge($all,$data);
+        }
+        ksort($all);
+        
+        //$flag = JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK | JSON_PRETTY_PRINT;;
+        //file_put_contents(__DIR__.'/../docs/out.json',json_encode($all,$flag));
+        $this->options_descs=$all;
+    }
+    protected function getSrcFiles($source)
+    {
+        $directory = new \RecursiveDirectoryIterator($source, \FilesystemIterator::CURRENT_AS_PATHNAME | \FilesystemIterator::SKIP_DOTS);
+        $iterator = new \RecursiveIteratorIterator($directory);
+        $it=new \RegexIterator($iterator,'/\.php$/', RegexIterator::MATCH);
+        $ret=\iterator_to_array($it, false);
+        return $ret;
+    }
+    protected function doDoc($file)
+    {
+        $data = $this->drawSrc($file);
+        $doc_file = $this->getMd($file);
+        $docs_lines=file($doc_file);
+        $options_diff=array_diff($data['options'],$docs_lines);
+        $functions_diff=array_diff($data['functions'],$docs_lines);
+        $text ='';
+        if($options_diff){
+            $text.=implode("\n",$options_diff)."\n";
+        }
+        if($functions_diff){
+            $text.=implode("\n",$functions_diff)."\n";
+
+        }
+        if($text){
+            var_dump($file,$text);
+            file_put_contents($doc_file,$text,FILE_APPEND);
+        }
+    }
+    
+    protected function doDoc2($file)
+    {
+        $data = $this->drawSrc($file);  // 这里又读了一次文件，优化就不需要了
+        $doc_file = $this->getMd($file);
+        $doc = file_get_contents($doc_file);
+        $ret=[];
+        foreach($data['options'] as $v){
+            $pos=strpos($doc,$v);
+            if(false===$pos){continue;}
+            $str=substr($doc,$pos,255);
+            $t=explode("\n",$str);
+            array_shift($t);
+            $z=array_shift($t);
+            preg_match("/'([^']+)/",$str,$m);
+            $k=$m[1];
+            $ret[$k]=$z;
+        }
+        return $ret;
+    }
+    public function drawSrc($file)
+    {
+        $head  = '    public $options = ['."\n";
+        $head2 = '        $plugin_options_default = ['."\n";
+        $head3 = '    protected static $options_default = ['."\n";
+        $head4 = '    protected $core_options = ['."\n";
+
+        $foot  = '    ];'."\n";
+        $foot2 = '        ];'."\n";
+        $foot3 = '        ];'."\n";
+        $foot4 = '    ];'."\n";
+        
+        
+        $in=false;
+        
+        $options=[];
+        $functions=[];
+        
+        $lines=file($file);
+        foreach($lines as $l){
+            if($l === $foot || $l === $foot2 || $l === $foot3 || $l === $foot4){
+                break;
+            }
+            if($in){
+                if(empty(trim($l))){ continue; }
+                if(substr(trim($l),0,2)==='//'){continue;}
+                $options[]=$l;
+            }
+            if($l===$head || $l === $head2 || $l === $head3 || $l === $head4){
+                $in=true;
+            }
+            
+        }
+        $functions=array_filter($lines,function($v){return preg_match('/function [a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*/',$v);});
+        return ['options'=>$options,'functions'=>$functions];
+    }
+    protected function getMd($file)
+    {
+        $md=substr($file,strlen($this->path_base.'src/'));
+        $md=$this->path_base.'/docs/ref/'.str_replace(['/','.php'],['-','.md'],$md);
+        return $md;
+    }
+    
+    public function checkDoc($file,$data,$doc_lines)
+    {
+        $options_diff=array_diff($data['options'],$docs_lines);
+        $functions_diff=array_diff($data['functions'],$docs_lines);
+    }
+    
+}
+class OptionsGenerator
+{
+    public function checkHasDoced()
+    {
+        $ret=[];
+        $input=$this->getAllOptions();
+
+        $classes=DataProvider::G()->getAllComponentClasses();
+        array_shift($classes);
+        foreach($classes as $class){
+            //var_dump($class);
+            $file=realpath(__DIR__.'/../docs/');
+            $str=str_replace(['DuckPhp\\','\\'],['/ref/','-'],$class);
+            $file=$file.$str.'.md';
+            $data=file_get_contents($file);
+            $options=(new $class())->options;
+            $row=[];
+            foreach($options as $k =>$v){
+                if(false ===strpos($data,$k)){
+                    $row[]=$k;
+                }
+            }
+            if(!empty($row)){
+                $ret[$class]=$row;
+            }
+        }
+        if(!empty($ret)){
+            var_dump($ret);
+        }
+    }
+    
     public static function G($object=null)
     {
         static $_instance;
@@ -33,6 +203,7 @@ class GenOptionsGenerator
         foreach($docs as $file){
             WrapFileAction($file,'replaceData');
         }
+        $this->checkHasDoced();
         
     }
     public function diff()
@@ -66,7 +237,7 @@ class GenOptionsGenerator
             array_walk($classes,function(&$v, $key){$v="[$v](".str_replace(['DuckPhp\\','\\'],['','-'],$v).".md)";});
             $x="  // ".implode(", ",$classes) ."";
             $str.=<<<EOT
-+ {$b} $var_option => $s,  {$b} 
++ {$b}$var_option => $s,{$b} 
 
     $comment $x
 
@@ -110,7 +281,8 @@ EOT;
 EOT;
             $ret[]=$str;
         }
-        return implode("",$ret);    }
+        return implode("",$ret);    
+    }
     public function getAllOptions()
     {
         $classes=DataProvider::G()->getAllComponentClasses();
@@ -132,7 +304,7 @@ EOT;
                 $v['class']=$v['class']??[];
                 $v['class'][]=$class;
                 $v['desc']=$desc[$option]??'';
-                
+
                 unset($v);
             }
         }
@@ -238,19 +410,16 @@ class DataProvider
     public function getKernelOptions()
     {
         return [
-            'use_autoloader',
-            'skip_plugin_mode_check',
-            'handle_all_dev_error',
-            'handle_all_exception',
-            'override_class',
-            'path_namespace',
+            //'use_autoloader',
+            //'skip_plugin_mode_check',
+            //'override_class',
         ];
     }
     public function getDescs()
     {
         static $cache;
         if(!isset($cache)){
-            $cache=json_decode(file_get_contents(__DIR__ . '/../doc/options-desc.json'),true);
+            $cache =  DocFixer::G()->options_descs; //json_decode(file_get_contents(__DIR__ . '/../docs/options-desc.json'),true);
         }
         return $cache;
     }
@@ -264,27 +433,28 @@ class DataProvider
     }
     function getInDependComponentClasses()
     {
-        $classes="DuckPhp\\HttpServer
-DuckPhp\\Ext\\Pager
-";
+        $classes="DuckPhp\\HttpServer\\HttpServer
+DuckPhp\\Component\\Pager
+DuckPhp\\Component\\Installer";
         $classes=explode("\n",$classes);
         return $classes;
     }
     function getDefaultComponentClasses()
     {
         $classes="DuckPhp\\DuckPhp
+DuckPhp\\Core\\App
 DuckPhp\\Core\\AutoLoader
 DuckPhp\\Core\\Configer
 DuckPhp\\Core\\Logger
 DuckPhp\\Core\\Route
 DuckPhp\\Core\\RuntimeState
-DuckPhp\\Core\\SuperGlobal
 DuckPhp\\Core\\View
-DuckPhp\\Ext\\Cache
-DuckPhp\\Ext\\DbManager
-DuckPhp\\Ext\\EventManager
-DuckPhp\\Ext\\RouteHookPathInfoCompat
-DuckPhp\\Ext\\RouteHookRouteMap";
+DuckPhp\\Component\\Cache
+DuckPhp\\Component\\DbManager
+DuckPhp\\Component\\EventManager
+DuckPhp\\Component\\RouteHookPathInfoCompat
+DuckPhp\\Component\\RouteHookRouteMap
+";
         $classes=explode("\n",$classes);
         return $classes;
     }
@@ -298,23 +468,24 @@ DuckPhp\\Core\\ExceptionManager
 DuckPhp\\Core\\Logger
 DuckPhp\\Core\\Route
 DuckPhp\\Core\\RuntimeState
-DuckPhp\\Core\\SuperGlobal
 DuckPhp\\Core\\View
+DuckPhp\\Component\\Cache
+DuckPhp\\Component\\Console
+DuckPhp\\Component\\DbManager
+DuckPhp\\Component\\EventManager
+DuckPhp\\Component\\RouteHookPathInfoCompat
+DuckPhp\\Component\\RouteHookRouteMap
 DuckPhp\\Ext\\CallableView
-DuckPhp\\Ext\\Cache
-DuckPhp\\Ext\\DbManager
 DuckPhp\\Ext\\EmptyView
-DuckPhp\\Ext\\EventManager
-DuckPhp\\Ext\\FacadesAutoLoader
+DuckPhp\\Ext\\MyFacadesAutoLoader
 DuckPhp\\Ext\\JsonRpcExt
 DuckPhp\\Ext\\Misc
 DuckPhp\\Ext\\RedisCache
 DuckPhp\\Ext\\RedisManager
 DuckPhp\\Ext\\RouteHookApiServer
 DuckPhp\\Ext\\RouteHookDirectoryMode
-DuckPhp\\Ext\\RouteHookPathInfoCompat
+DuckPhp\\Ext\\RouteHookFunctionRoute
 DuckPhp\\Ext\\RouteHookRewrite
-DuckPhp\\Ext\\RouteHookRouteMap
 DuckPhp\\Ext\\StrictCheck";
         $classes=explode("\n",$classes);
         return $classes;
@@ -349,14 +520,14 @@ function replaceData($content)
     $dir=__DIR__.'/../';
     
     if(false !== strpos($content,'@forscript')){
-        $options=GenOptionsGenerator::G()->getAllOptions();
-        $data=GenOptionsGenerator::G()->genMdBySort($options);
+        $options=OptionsGenerator::G()->getAllOptions();
+        $data=OptionsGenerator::G()->genMdBySort($options);
         
         $str1="@forscript genoptions.php#options-md-alpha\n";
         $str2="\n@forscript end";
         $content=SliceReplace($content, $data, $str1, $str2);
         
-        $data=GenOptionsGenerator::G()->genMdByClass($options);
+        $data=OptionsGenerator::G()->genMdByClass($options);
         $str1="@forscript genoptions.php#options-md-class\n";
         $str2="\n@forscript end";
         $content=SliceReplace($content, $data, $str1, $str2);
@@ -389,7 +560,7 @@ function WrapFileAction($file,$callback)
 }
 function GetAllDocFile()
 {
-    $source=realpath(__DIR__.'/../doc/');
+    $source=realpath(__DIR__.'/../docs/');
     $directory = new \RecursiveDirectoryIterator($source, \FilesystemIterator::CURRENT_AS_PATHNAME | \FilesystemIterator::SKIP_DOTS);
     $iterator = new \RecursiveIteratorIterator($directory);
     $it=new \RegexIterator($iterator,'/\.md$/', RegexIterator::MATCH);
@@ -397,3 +568,26 @@ function GetAllDocFile()
     array_unshift($ret,realpath(__DIR__.'/../README.md'));
     return $ret;
 }
+
+function getClassStaticMethods($class)
+{
+    $ref=new ReflectionClass($class);
+    $a=$ref->getMethods(ReflectionMethod::IS_STATIC);
+    $ret=[];
+    foreach($a as $v){
+        $ret[]=$v->getName();
+    }
+    return $ret;
+}
+
+/*
+$m=getClassStaticMethods(DuckPhp::class);
+$m_a=getClassStaticMethods(\DuckPhp\Helper\AppHelper::class);
+$m_b=getClassStaticMethods(\DuckPhp\Helper\BusinessHelper::class);
+$m_c=getClassStaticMethods(\DuckPhp\Helper\ControllerHelper::class);
+$m_m=getClassStaticMethods(\DuckPhp\Helper\ModelHelper::class);
+$m_v=getClassStaticMethods(\DuckPhp\Helper\ViewHelper::class);
+
+$ret=array_diff($m,$m_a,$m_b,$m_c,$m_m,$m_v);
+var_dump(array_values($ret));
+*/

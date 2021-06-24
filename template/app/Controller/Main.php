@@ -6,21 +6,28 @@
 
 namespace LazyToChange\Controller;
 
-use LazyToChange\System\Helper\ControllerHelper as C;
-// use LazyToChange\System\BaseController;
-use LazyToChange\Business\TestBusiness;
+// use LazyToChange\Controller\BaseController;
+use LazyToChange\Business\DemoBusiness;
+use LazyToChange\Helper\ControllerHelper as C;
 
 class Main // extends BaseController
 {
     public function index()
     {
-        //change if  you can
-        $var = C::H(TestBusiness::G()->foo());
+        //change it if  you can
+        $var = C::H(DemoBusiness::G()->foo());
         C::Show(get_defined_vars(), 'main');
     }
-    // change if  you can
+    public function files()
+    {
+        C::Show(get_defined_vars(), 'files');
+    }
     public function i()
     {
         phpinfo();
+    }
+    protected  function foo()
+    {
+        var_dump(DATE(DATE_ATOM));
     }
 }

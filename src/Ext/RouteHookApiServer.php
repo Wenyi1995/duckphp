@@ -11,14 +11,14 @@ class RouteHookApiServer extends ComponentBase
 {
     public $options = [
         'namespace' => '',
-        'api_server_interface' => '',
+        'api_server_base_class' => '',
         'api_server_namespace' => 'Api',
         'api_server_class_postfix' => '',
-        //'api_server_config_cache_file' => '',
-        //'api_server_on_missing' => '',
         'api_server_use_singletonex' => false,
         'api_server_404_as_exception' => false,
     ];
+    //'api_server_config_cache_file' => '',
+    //'api_server_on_missing' => '',
     protected $context_class;
     protected $headers = [
         'Access-Control-Allow-Origin' => '*',
@@ -69,6 +69,17 @@ class RouteHookApiServer extends ComponentBase
             'error_message' => $e->getMessage(),
         ]);
     }
+    protected function getComponenetNamespace($namespace_key)
+    {
+        $namespace = $this->options['namespace'];
+        $namespace_componenet = $this->options[$namespace_key];
+        if (substr($namespace_componenet, 0, 1) !== '\\') {
+            $namespace_componenet = rtrim($namespace, '\\').'\\'.$namespace_componenet;
+        }
+        $namespace_componenet = trim($namespace_componenet, '\\');
+        
+        return $namespace_componenet;
+    }
     protected function getObjectAndMethod($path_info)
     {
         $path_info = trim($path_info, '/');
@@ -84,12 +95,9 @@ class RouteHookApiServer extends ComponentBase
         $namespace_prefix = $namespace ? $namespace .'\\':'';
         
         $class = $namespace_prefix . $class . $this->options['api_server_class_postfix'];
-        
-        $interface = $this->options['api_server_interface'];
-        if ($interface && substr($interface, 0, 1) === '~') {
-            $interface = ltrim($namespace_prefix.substr($interface, 1), '\\');
-        }
-        if ($interface && !is_subclass_of($class, $interface)) {
+        /** @var string */
+        $base_class = str_replace('~', $namespace_prefix, $this->options['api_server_base_class']);
+        if ($base_class && !is_subclass_of($class, $base_class)) {
             return [null, null];
         }
         if ($this->options['api_server_use_singletonex']) {
@@ -105,9 +113,11 @@ class RouteHookApiServer extends ComponentBase
     protected function getInputs($path_info)
     {
         if (($this->context_class)::IsDebug()) {
-            $inputs = ($this->context_class)::SuperGlobal()->_REQUEST;
+            $_REQUEST = defined('__SUPERGLOBAL_CONTEXT') ? (__SUPERGLOBAL_CONTEXT)()->_REQUEST : $_REQUEST;
+            $inputs = $_REQUEST;
         } else {
-            $inputs = ($this->context_class)::SuperGlobal()->_POST;
+            $_POST = defined('__SUPERGLOBAL_CONTEXT') ? (__SUPERGLOBAL_CONTEXT)()->_POST : $_POST;
+            $inputs = $_POST;
         }
         return $inputs;
     }
@@ -116,7 +126,7 @@ class RouteHookApiServer extends ComponentBase
         foreach ($this->headers as $k => $v) {
             ($this->context_class)::header("$k: $v");
         }
-        
+        ($this->context_class)::header('Content-Type: text/plain; charset=utf-8');
         $flag = JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK;
         if ($this->context_class::IsDebug()) {
             $flag = $flag | JSON_PRETTY_PRINT;

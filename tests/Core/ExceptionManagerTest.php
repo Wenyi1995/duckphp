@@ -7,7 +7,7 @@ class ExceptionManagerTest extends \PHPUnit\Framework\TestCase
 {
     public function testAll()
     {
-        \MyCodeCoverage::G()->begin(ExceptionManager::class);
+        \LibCoverage\LibCoverage::Begin(ExceptionManager::class);
 
          $exception_options=[
             'default_exception_handler'=>[ExceptionManagerObject::class,'CallException'],
@@ -61,13 +61,13 @@ class ExceptionManagerTest extends \PHPUnit\Framework\TestCase
         ExceptionManager::G()->isInited();
 
 
-        ExceptionManager::G(new ExceptionManager());
-        $t=\MyCodeCoverage::G();
+        ExceptionManager::G(new ExceptionManager())->reset();
+        $t=\LibCoverage\LibCoverage::G();
         define('__SINGLETONEX_REPALACER',ExceptionAutoLoaderObject::class.'::CreateObject');
-        \MyCodeCoverage::G($t);
+        \LibCoverage\LibCoverage::G($t);
         ExceptionManager::G();
         
-        \MyCodeCoverage::G()->end();
+        \LibCoverage\LibCoverage::End();
         /*
         
         ExceptionManager::G()->setMultiExceptionHandler(array $classes, $callback);
@@ -106,7 +106,7 @@ class ExceptionAutoLoaderObject
     {
         static $_instance;
         $_instance=$_instance??[];
-        $_instance[$class]=$object?:($_instance[$class]??($_instance[$class]??new static));
+        $_instance[$class]=$object?:($_instance[$class]??($_instance[$class]??new $class));
         return $_instance[$class];
     }
 

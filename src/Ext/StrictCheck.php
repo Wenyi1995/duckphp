@@ -5,6 +5,7 @@
  */
 namespace DuckPhp\Ext;
 
+use DuckPhp\Component\DbManager;
 use DuckPhp\Core\ComponentBase;
 use ErrorException;
 
@@ -13,22 +14,22 @@ class StrictCheck extends ComponentBase
     const MAX_TRACE_LEVEL = 20;
     
     public $options = [
-            'namespace' => 'LazyToChange',
-            'namespace_controller' => 'Controller',
-            'namespace_business' => '',
-            'namespace_model' => '',
-            'controller_base_class' => null,
-            'is_debug' => false,
-            'strict_check_context_class' => null,
-            
-            'strict_check_enable' => true,
-            
-            'postfix_batch_business' => 'BatchBusiness',
-            'postfix_business_lib' => 'Lib',
-            'postfix_ex_model' => 'ExModel',
-            'postfix_model' => 'Model',
+        'namespace' => '',
+        'namespace_controller' => 'Controller',
+        'namespace_business' => '',
+        'namespace_model' => '',
+        'controller_base_class' => null,
+        'is_debug' => false,
+        'strict_check_context_class' => null,
+        
+        'strict_check_enable' => true,
+        
+        'postfix_batch_business' => 'BatchBusiness',
+        'postfix_business_lib' => 'Lib',
+        'postfix_ex_model' => 'ExModel',
+        'postfix_model' => 'Model',
 
-        ];
+    ];
     
     protected $context_class = null;
     
@@ -45,7 +46,7 @@ class StrictCheck extends ComponentBase
     {
         $this->context_class = get_class($context);
         try {
-            ($this->context_class)::setBeforeGetDbHandler([static::class, 'CheckStrictDb']);
+            DbManager::G()->setBeforeGetDbHandler([static::class, 'CheckStrictDb']);
         } catch (\BadMethodCallException $ex) { // @codeCoverageIgnore
             //do nothing;
         }
